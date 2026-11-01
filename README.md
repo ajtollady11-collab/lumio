@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Lumio
 
-## Getting Started
+An AI-powered personal tutor for UK GCSE and A-level students, with a dedicated experience for parents.
 
-First, run the development server:
+This repository is a **complete fresh build** — it shares no code, schema or deployment with any previous Lumio application.
+
+## Documentation
+
+| Document | What it covers |
+|---|---|
+| [Architecture](docs/LUMIO_ARCHITECTURE.md) | System design, layout, data access, auth flows, decisions |
+| [Development roadmap](docs/LUMIO_DEVELOPMENT_ROADMAP.md) | Phase status, completed work, outstanding tasks |
+| [Database schema](docs/LUMIO_DATABASE_SCHEMA.md) | Tables, policies, planned tables, RLS tests |
+| [Design system](docs/LUMIO_DESIGN_SYSTEM.md) | Colour, type, motion, components, responsive rules |
+| [AI architecture](docs/LUMIO_AI_ARCHITECTURE.md) | Engines, routing, memory, voice evaluation |
+| [Security requirements](docs/LUMIO_SECURITY_REQUIREMENTS.md) | Controls, children's data, release gates |
+| [Cost control](docs/LUMIO_COST_CONTROL.md) | Allowances, usage ledger, routing policy, budget |
+
+## Getting started
+
+Requirements: Node.js 22+.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local   # fill in the Supabase values
+npm run dev                  # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+| Script | Purpose |
+|---|---|
+| `npm run dev` | Development server |
+| `npm run build` / `npm start` | Production build and server |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | Route type generation + `tsc` |
+| `npm test` | Vitest unit and component tests |
+| `npm run check` | Lint, typecheck and tests together |
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Database
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Migrations live in `supabase/migrations` and are applied in filename order (Supabase CLI: `npx supabase db push`, or the SQL editor). After changing policies, run the permission suite in `supabase/tests/rls_permissions.sql` — it runs inside a transaction and rolls back.
 
-## Learn More
+## Deployment
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Vercel, Node.js runtime. Set the variables from `.env.example` per environment. Builds succeed without secrets; features that need a missing integration say so in the UI.

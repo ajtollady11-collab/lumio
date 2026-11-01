@@ -1,26 +1,195 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Lumio design tokens.
+ * Source of truth for colour, type, radius, elevation and motion.
+ * Documented in docs/LUMIO_DESIGN_SYSTEM.md — keep the two in sync.
+ */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@theme {
+  /* Ink: the deep navy foundation. Never pure black. */
+  --color-ink-950: #050816;
+  --color-ink-900: #080d20;
+  --color-ink-850: #0b122a;
+  --color-ink-800: #0f1734;
+  --color-ink-700: #172146;
+  --color-ink-600: #222e5c;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  /* Text */
+  --color-fg: #edf1ff;
+  --color-fg-muted: #a2adcf;
+  --color-fg-subtle: #6f7ba3;
+  --color-fg-inverse: #050816;
+
+  /* Accents */
+  --color-blue-400: #6b9bff;
+  --color-blue-500: #3b7bff; /* electric blue — primary */
+  --color-blue-600: #2a62e6;
+  --color-violet-400: #a48bff;
+  --color-violet-500: #8a6bff; /* secondary */
+  --color-cyan-400: #3ed8e8; /* live / focus states only */
+
+  /* Semantic */
+  --color-success: #39d3a1;
+  --color-warning: #f5b85a;
+  --color-danger: #ff6f86;
+
+  /* Lines */
+  --color-line: rgb(148 170 255 / 0.1);
+  --color-line-strong: rgb(148 170 255 / 0.18);
+
+  /* Type */
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+
+  /* Type scale (1.25 major third, 16px base) */
+  --text-display-xl: 4.25rem;
+  --text-display-xl--line-height: 1.02;
+  --text-display-xl--letter-spacing: -0.035em;
+  --text-display-lg: 3.25rem;
+  --text-display-lg--line-height: 1.05;
+  --text-display-lg--letter-spacing: -0.03em;
+  --text-display-md: 2.25rem;
+  --text-display-md--line-height: 1.1;
+  --text-display-md--letter-spacing: -0.025em;
+  --text-display-sm: 1.625rem;
+  --text-display-sm--line-height: 1.2;
+  --text-display-sm--letter-spacing: -0.02em;
+
+  /* Radius — varies with hierarchy */
+  --radius-control: 0.75rem;
+  --radius-panel: 1.25rem;
+  --radius-stage: 1.75rem;
+
+  /* Elevation — tinted, never grey */
+  --shadow-panel: 0 1px 0 0 rgb(255 255 255 / 0.04) inset, 0 20px 50px -24px rgb(2 6 23 / 0.9);
+  --shadow-glow-blue: 0 0 0 1px rgb(59 123 255 / 0.5), 0 10px 40px -10px rgb(59 123 255 / 0.55);
+
+  /* Motion */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-soft: cubic-bezier(0.65, 0, 0.35, 1);
+
+  --animate-drift-a: drift-a 28s var(--ease-in-out-soft) infinite alternate;
+  --animate-drift-b: drift-b 34s var(--ease-in-out-soft) infinite alternate;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+
+  @keyframes drift-a {
+    from {
+      transform: translate3d(-6%, -4%, 0) scale(1);
+    }
+    to {
+      transform: translate3d(6%, 5%, 0) scale(1.12);
+    }
+  }
+  @keyframes drift-b {
+    from {
+      transform: translate3d(5%, 6%, 0) scale(1.08);
+    }
+    to {
+      transform: translate3d(-7%, -3%, 0) scale(0.95);
+    }
+  }
+  @keyframes shimmer {
+    from {
+      background-position: -200% 0;
+    }
+    to {
+      background-position: 200% 0;
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html {
+    background-color: var(--color-ink-950);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: var(--color-ink-950);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv11";
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  ::selection {
+    background: rgb(59 123 255 / 0.45);
+    color: var(--color-fg);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-cyan-400);
+    outline-offset: 2px;
+  }
+
+  /* Remove animation entirely for people who ask for it. Framer Motion
+     honours the same preference through <MotionConfig reducedMotion="user">. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Layered dark surface: translucent navy over the ink background. */
+  .surface {
+    background: linear-gradient(180deg, rgb(23 33 70 / 0.62), rgb(15 23 52 / 0.52));
+    border: 1px solid var(--color-line);
+    box-shadow: var(--shadow-panel);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+  }
+
+  .surface-raised {
+    background: linear-gradient(180deg, rgb(34 46 92 / 0.7), rgb(23 33 70 / 0.6));
+    border: 1px solid var(--color-line-strong);
+    box-shadow: var(--shadow-panel);
+  }
+
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      rgb(148 170 255 / 0.06) 25%,
+      rgb(148 170 255 / 0.13) 50%,
+      rgb(148 170 255 / 0.06) 75%
+    );
+    background-size: 200% 100%;
+    animation: var(--animate-shimmer);
+  }
+
+  .text-gradient-brand {
+    background: linear-gradient(100deg, var(--color-fg) 20%, var(--color-blue-400) 60%, var(--color-violet-400));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+@utility safe-bottom {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
 }
