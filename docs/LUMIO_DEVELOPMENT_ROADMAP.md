@@ -51,7 +51,12 @@
 - [x] **GitHub**: `ajtollady11-collab/lumio` (new, empty repo; the previous app was renamed to `lumio-legacy` and left untouched)
 - [x] **Vercel**: new project `lumio`, functions in London (`lhr1`), public env vars set, production deployment at `lumio-rose-three.vercel.app` (Vercel Authentication on — only signed-in team members can view until launch)
 - [ ] **Supabase Auth settings** (dashboard): Site URL, redirect URLs, email templates (token-hash links), SMTP sender
-- [ ] End-to-end sign-up → confirm → sign-in on the deployed preview (the build sandbox cannot reach Supabase Auth over HTTPS)
+- [x] Supabase Auth Site URL and redirect URLs set to the production domain
+- [x] Live verification (2026-11-01): sign-up email sent and confirmed, password sign-in on production succeeded (Supabase auth logs), profile row created with role `student`
+- [ ] Not yet verified live: password reset, sign-out, parent sign-up and role redirect, Google (disabled)
+- [ ] Email templates switched to token-hash links (cross-device confirmation) and a custom SMTP sender (Supabase's default sender is rate-limited and not for production)
+- [ ] Leaked-password protection (Supabase advisor warning; requires Supabase Pro)
+- [ ] `SUPABASE_SECRET_KEY` added to Vercel (needed from Phase 2)
 
 ## Phase 2 — User experience (next)
 - Multi-step student onboarding (qualification, boards, subjects, target grades, exam dates, learning preferences, age band) with animated progress
