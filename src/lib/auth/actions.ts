@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getSupabasePublicConfig, publicEnv } from "@/lib/config/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { safeRedirectPath } from "@/lib/utils/safe-redirect";
+import { PASSWORD_MESSAGES, passwordProblem } from "./password-check";
 import {
   flattenFieldErrors,
   forgotPasswordSchema,
@@ -71,6 +72,9 @@ export async function signUpAction(_prev: AuthFormState, formData: FormData): Pr
   if (!parsed.success) return { status: "error", fieldErrors: flattenFieldErrors(parsed.error), values };
 
   const { firstName, email, password, accountRole } = parsed.data;
+  const problem = await passwordProblem(password, [firstName, email.split("@")[0] ?? ""]);
+  if (problem) return { status: "error", fieldErrors: { password: PASSWORD_MESSAGES[problem] }, values };
+
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.signUp({
     email,
@@ -130,6 +134,10 @@ export async function updatePasswordAction(_prev: AuthFormState, formData: FormD
   if (!data?.claims?.sub) {
     return { status: "error", message: "Your reset link has expired. Request a new one." };
   }
+
+  const email = typeof data.claims.email === "string" ? data.claims.email : "";
+  const problem = await passwordProblem(parsed.data.password, [email.split("@")[0] ?? ""]);
+  if (problem) return { status: "error", fieldErrors: { password: PASSWORD_MESSAGES[problem] } };
 
   const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
   if (error) {

@@ -1,6 +1,11 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
+import { MotionGlobalConfig } from "framer-motion";
 import { afterEach, vi } from "vitest";
+
+// Animations add nothing to behaviour tests and make timing non-deterministic.
+MotionGlobalConfig.skipAnimations = true;
+Element.prototype.scrollIntoView ??= () => {};
 
 afterEach(() => cleanup());
 

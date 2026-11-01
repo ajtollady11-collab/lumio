@@ -141,6 +141,12 @@
     outline-offset: 2px;
   }
 
+  /* Headings that receive focus programmatically (so screen readers announce a
+     new step) aren't interactive — no ring needed. */
+  [tabindex="-1"]:focus {
+    outline: none;
+  }
+
   /* Remove animation entirely for people who ask for it. Framer Motion
      honours the same preference through <MotionConfig reducedMotion="user">. */
   @media (prefers-reduced-motion: reduce) {

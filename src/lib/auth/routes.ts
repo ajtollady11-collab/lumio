@@ -1,5 +1,5 @@
 /** Route prefixes that require a signed-in user. */
-export const PROTECTED_PREFIXES = ["/app", "/parent", "/admin"] as const;
+export const PROTECTED_PREFIXES = ["/app", "/parent", "/admin", "/onboarding"] as const;
 
 /** Auth pages a signed-in user has no reason to see. */
 export const AUTH_PAGES = ["/sign-in", "/sign-up", "/forgot-password"] as const;

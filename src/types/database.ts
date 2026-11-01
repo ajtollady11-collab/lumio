@@ -181,6 +181,42 @@ export type Database = {
         }
         Relationships: []
       }
+      examination_dates: {
+        Row: {
+          created_at: string
+          exam_board_id: string | null
+          exam_date: string
+          id: string
+          notes: string | null
+          qualification_id: string
+          student_id: string
+          subject_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          exam_board_id?: string | null
+          exam_date: string
+          id?: string
+          notes?: string | null
+          qualification_id: string
+          student_id: string
+          subject_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          exam_board_id?: string | null
+          exam_date?: string
+          id?: string
+          notes?: string | null
+          qualification_id?: string
+          student_id?: string
+          subject_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       learning_objectives: {
         Row: {
           code: string | null
@@ -212,6 +248,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      parent_invitations: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          code_hash: string
+          created_at: string
+          expires_at: string
+          id: string
+          parent_id: string
+          revoked_at: string | null
+          status: Database["public"]["Enums"]["invitation_status"]
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          code_hash: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          parent_id: string
+          revoked_at?: string | null
+          status?: Database["public"]["Enums"]["invitation_status"]
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          code_hash?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          parent_id?: string
+          revoked_at?: string | null
+          status?: Database["public"]["Enums"]["invitation_status"]
+        }
+        Relationships: []
       }
       parent_profiles: {
         Row: {
@@ -251,8 +323,6 @@ export type Database = {
           created_at: string
           id: string
           initiated_by: Database["public"]["Enums"]["link_initiator"]
-          invite_code_hash: string | null
-          invite_expires_at: string | null
           parent_id: string
           revoked_at: string | null
           share_activity: boolean
@@ -267,8 +337,6 @@ export type Database = {
           created_at?: string
           id?: string
           initiated_by: Database["public"]["Enums"]["link_initiator"]
-          invite_code_hash?: string | null
-          invite_expires_at?: string | null
           parent_id: string
           revoked_at?: string | null
           share_activity?: boolean
@@ -283,8 +351,6 @@ export type Database = {
           created_at?: string
           id?: string
           initiated_by?: Database["public"]["Enums"]["link_initiator"]
-          invite_code_hash?: string | null
-          invite_expires_at?: string | null
           parent_id?: string
           revoked_at?: string | null
           share_activity?: boolean
@@ -335,6 +401,21 @@ export type Database = {
           onboarding_completed_at?: string | null
           role?: Database["public"]["Enums"]["account_role"]
           updated_at?: string
+        }
+        Relationships: []
+      }
+      qualification_exam_boards: {
+        Row: {
+          exam_board_id: string
+          qualification_id: string
+        }
+        Insert: {
+          exam_board_id: string
+          qualification_id: string
+        }
+        Update: {
+          exam_board_id?: string
+          qualification_id?: string
         }
         Relationships: []
       }
@@ -434,10 +515,14 @@ export type Database = {
       }
       student_profiles: {
         Row: {
+          academic_goals: string | null
           age_band: Database["public"]["Enums"]["age_band"] | null
           created_at: string
+          education_level: Database["public"]["Enums"]["education_level"] | null
           first_name: string | null
           learning_preferences: string[]
+          onboarding_step: number
+          primary_qualification_id: string | null
           parental_consent: Database["public"]["Enums"]["consent_status"]
           profile_id: string
           school_year: number | null
@@ -446,10 +531,14 @@ export type Database = {
           weekly_study_minutes_goal: number | null
         }
         Insert: {
+          academic_goals?: string | null
           age_band?: Database["public"]["Enums"]["age_band"] | null
           created_at?: string
+          education_level?: Database["public"]["Enums"]["education_level"] | null
           first_name?: string | null
           learning_preferences?: string[]
+          onboarding_step?: number
+          primary_qualification_id?: string | null
           parental_consent?: Database["public"]["Enums"]["consent_status"]
           profile_id: string
           school_year?: number | null
@@ -458,10 +547,14 @@ export type Database = {
           weekly_study_minutes_goal?: number | null
         }
         Update: {
+          academic_goals?: string | null
           age_band?: Database["public"]["Enums"]["age_band"] | null
           created_at?: string
+          education_level?: Database["public"]["Enums"]["education_level"] | null
           first_name?: string | null
           learning_preferences?: string[]
+          onboarding_step?: number
+          primary_qualification_id?: string | null
           parental_consent?: Database["public"]["Enums"]["consent_status"]
           profile_id?: string
           school_year?: number | null
@@ -481,37 +574,65 @@ export type Database = {
       }
       student_subjects: {
         Row: {
+          confidence: Database["public"]["Enums"]["subject_confidence"] | null
           created_at: string
-          specification_id: string
+          current_grade: string | null
+          exam_board_id: string | null
+          id: string
+          qualification_id: string
+          specification_id: string | null
           student_id: string
+          subject_id: string
           target_grade: string | null
+          updated_at: string
         }
         Insert: {
+          confidence?: Database["public"]["Enums"]["subject_confidence"] | null
           created_at?: string
-          specification_id: string
+          current_grade?: string | null
+          exam_board_id?: string | null
+          id?: string
+          qualification_id: string
+          specification_id?: string | null
           student_id: string
+          subject_id: string
           target_grade?: string | null
+          updated_at?: string
         }
         Update: {
+          confidence?: Database["public"]["Enums"]["subject_confidence"] | null
           created_at?: string
-          specification_id?: string
+          current_grade?: string | null
+          exam_board_id?: string | null
+          id?: string
+          qualification_id?: string
+          specification_id?: string | null
           student_id?: string
+          subject_id?: string
           target_grade?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "student_subjects_specification_id_fkey"
-            columns: ["specification_id"]
+            foreignKeyName: "student_subjects_subject_id_fkey"
+            columns: ["subject_id"]
             isOneToOne: false
-            referencedRelation: "specifications"
+            referencedRelation: "subjects"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "student_subjects_student_id_fkey"
-            columns: ["student_id"]
+            foreignKeyName: "student_subjects_qualification_id_fkey"
+            columns: ["qualification_id"]
             isOneToOne: false
-            referencedRelation: "student_profiles"
-            referencedColumns: ["profile_id"]
+            referencedRelation: "qualifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_subjects_exam_board_id_fkey"
+            columns: ["exam_board_id"]
+            isOneToOne: false
+            referencedRelation: "exam_boards"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -740,7 +861,36 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      accept_parent_invitation: {
+        Args: { p_code: string }
+        Returns: {
+          link_id: string
+          status: string
+        }[]
+      }
+      complete_parent_onboarding: { Args: never; Returns: undefined }
+      complete_student_onboarding: { Args: never; Returns: undefined }
+      create_parent_invitation: {
+        Args: never
+        Returns: {
+          code: string
+          expires_at: string
+          invitation_id: string
+        }[]
+      }
+      preview_parent_invitation: {
+        Args: { p_code: string }
+        Returns: {
+          expires_at: string
+          parent_first_name: string
+          status: string
+        }[]
+      }
+      revoke_parent_invitation: {
+        Args: { p_invitation_id: string }
+        Returns: undefined
+      }
+      unlink_parent_student: { Args: { p_link_id: string }; Returns: undefined }
     }
     Enums: {
       account_role: "student" | "parent"
@@ -757,11 +907,14 @@ export type Database = {
       billing_interval: "month" | "year"
       consent_status: "not_required" | "pending" | "granted" | "withdrawn"
       content_status: "draft" | "published" | "retired"
+      education_level: "gcse" | "a_level" | "igcse" | "other"
+      invitation_status: "pending" | "accepted" | "revoked"
       link_initiator: "parent" | "student"
       link_status: "pending" | "active" | "revoked"
       qualification_level: "gcse" | "igcse" | "as_level" | "a_level"
       report_scope: "activity" | "results" | "conversations"
       staff_role: "admin" | "support"
+      subject_confidence: "difficult" | "neutral" | "confident"
       subscription_status:
         | "trialing"
         | "active"
@@ -913,11 +1066,14 @@ export const Constants = {
       billing_interval: ["month", "year"],
       consent_status: ["not_required", "pending", "granted", "withdrawn"],
       content_status: ["draft", "published", "retired"],
+      education_level: ["gcse", "a_level", "igcse", "other"],
+      invitation_status: ["pending", "accepted", "revoked"],
       link_initiator: ["parent", "student"],
       link_status: ["pending", "active", "revoked"],
       qualification_level: ["gcse", "igcse", "as_level", "a_level"],
       report_scope: ["activity", "results", "conversations"],
       staff_role: ["admin", "support"],
+      subject_confidence: ["difficult", "neutral", "confident"],
       subscription_status: [
         "trialing",
         "active",

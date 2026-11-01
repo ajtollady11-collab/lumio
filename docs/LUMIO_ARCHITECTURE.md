@@ -1,7 +1,7 @@
 # Lumio — Architecture
 
 > Central technical reference. Keep current: update this file in the same change as any structural decision.
-> Last updated: 2026-11-01 (Phase 1 foundation).
+> Last updated: 2026-11-01 (Phase 2 onboarding).
 
 ## 1. System overview
 
@@ -60,6 +60,7 @@ lumio/
 │  ├─ app/                    Routes only — thin; delegate to components and services
 │  │  ├─ (marketing)/         Public site
 │  │  ├─ (auth)/              Sign in / up / password flows
+│  │  ├─ (onboarding)/onboarding/  Student and parent set-up (signed in, not yet onboarded)
 │  │  ├─ (app)/app/           Student area   (role-gated)
 │  │  ├─ (app)/parent/        Parent area    (role-gated)
 │  │  ├─ auth/confirm/        Email-link + OAuth landing (route handler)
@@ -71,24 +72,29 @@ lumio/
 │  │  ├─ brand/               Logo, TutorOrb, AmbientBackdrop
 │  │  ├─ motion/              MotionProvider, presets, PageTransition
 │  │  ├─ shell/               AppShell, navigation config, RoleGate, page header
+│  │  ├─ onboarding/          Student 8-step flow, steps (reused by Settings), exams manager, parent set-up
+│  │  ├─ family/ settings/    Invite/link/unlink UI; settings forms
 │  │  ├─ auth/ account/ marketing/ feedback/
 │  ├─ lib/                    Infrastructure, framework-agnostic where possible
 │  │  ├─ config/              env (public, server-only), plans
 │  │  ├─ supabase/            browser, server, admin, proxy clients
-│  │  ├─ auth/                session DAL, server actions, schemas, route rules
+│  │  ├─ auth/                session DAL, server actions, schemas, route rules, password checks
+│  │  ├─ onboarding/          options, step rules, zod schemas, date helpers (shared client/server)
+│  │  ├─ errors.ts            ActionResult type; maps database errors to friendly messages
 │  │  └─ utils/
-│  ├─ server/                 (Phase 2+) domain services: ai/, usage/, billing/, curriculum/…
+│  ├─ server/                 Domain services (server-only): curriculum/ (cached reference data), onboarding/, family/; later ai/, usage/, billing/
 │  └─ types/database.ts       Generated from the live schema
 └─ .github/workflows/ci.yml
 ```
 
-`src/server/` is created when the first domain service lands (Phase 2) — every module there starts with `import "server-only"`.
+Every module in `src/server/` starts with `import "server-only"` (data) or `"use server"` (actions).
 
 ## 4. Rendering and data access
 
 * **Cache Components** is enabled. Anything that reads cookies/session must sit inside `<Suspense>`; the static shell (navigation, layout chrome, marketing pages) prerenders. Signed-in layouts wrap page content in `<RoleGate>` inside a Suspense boundary, and the account chip has its own boundary, so navigation chrome appears instantly.
-* **Data Access Layer** — `src/lib/auth/session.ts`. `getViewer()` (request-memoised with `React.cache`) verifies the JWT with `supabase.auth.getClaims()` and returns a narrow `Viewer`. `requireViewer()` redirects when signed out. Pages never read raw sessions.
-* **Mutations** — Server Actions in `src/lib/auth/actions.ts` (and `src/server/**` later): parse `FormData` with zod → call Supabase as the user → return a typed `FormState`. Errors never reveal whether an account exists.
+* **Data Access Layer** — `src/lib/auth/session.ts`. `getViewerState()` (request-memoised with `React.cache`) verifies the JWT with `supabase.auth.getClaims()` and returns `signed_in` (with a narrow `Viewer`), `signed_out`, or `unavailable` (database unreachable or paused — Supabase Free pauses idle projects). `RoleGate` shows a calm "temporarily unavailable" screen for the last case instead of signing the user out. Pages never read raw sessions.
+* **Mutations** — Server Actions (`src/lib/auth/actions.ts`, `src/server/**/actions.ts`): validate with zod → call Supabase **as the user** (RLS applies) → return a typed `ActionResult` (`{ok:true,data}` or `{ok:false,error,message,fieldErrors?}`). Actions called from client components return results rather than calling `redirect()`; the client navigates. Errors never reveal whether an account exists or expose raw database text.
+* **Reference data** (qualifications, boards, subjects) is read with a cookie-less client inside `"use cache"` + `cacheLife("hours")`, so onboarding doesn't query the database for it on every page view — this keeps us comfortably within Free-plan limits.
 * **Privileged work** (webhooks, usage ledger, admin) uses `createSupabaseAdminClient()` from server-only code, performs its own authorisation, and writes `audit_logs`.
 
 ## 5. Authentication flows
@@ -103,10 +109,18 @@ lumio/
 
 Profiles are created by the `on_auth_user_created` trigger. The requested role is read from sign-up metadata **but only `student`/`parent` are accepted**; staff access lives in `private.staff_members` and is never self-assignable.
 
+## 5a. Onboarding flow
+
+* New users land on `/onboarding` (signed in, `onboarding_completed_at` null). `RoleGate` redirects any un-onboarded user there from `/app` or `/parent`.
+* **Student — 8 steps**: about you → qualification → subjects → exam boards (optional) → goals (optional) → exam dates (optional) → learning preferences → summary. Each Continue saves to the database immediately and records `onboarding_step`, so the user can resume on any device.
+* The page computes the **furthest step the saved data allows** (`furthestAllowedStep`) and clamps the resume point to it; the URL cannot skip ahead. Finishing calls `complete_student_onboarding()`, which re-checks the data in Postgres.
+* **Parent — 2 steps**: name → invite a child (optional; they can finish and do it later from the dashboard).
+* Settings reuses the same step components in "settings" mode, so students edit exactly the data they entered — the same rows are updated, never duplicated (unique constraints back this up).
+
 ## 6. Route protection
 
-1. `src/proxy.ts` — refreshes the session cookie on every request; redirects signed-out users from `/app`, `/parent`, `/admin` to `/sign-in?next=…`; redirects signed-in users away from sign-in/up pages. Fail-closed: with no Supabase config, protected areas redirect to sign-in.
-2. `RoleGate` — re-verifies and enforces role per area (students ↔ `/app`, parents ↔ `/parent`).
+1. `src/proxy.ts` — refreshes the session cookie on every request; redirects signed-out users from `/app`, `/parent`, `/onboarding`, `/admin` to `/sign-in?next=…`; redirects signed-in users away from sign-in/up pages. Fail-closed: with no Supabase config, protected areas redirect to sign-in.
+2. `RoleGate` — re-verifies and enforces role per area (students ↔ `/app`, parents ↔ `/parent`) and sends unfinished users to `/onboarding`.
 3. RLS — the database enforces ownership regardless of what the app does.
 
 ## 7. Environments
@@ -129,3 +143,6 @@ The previous application's Supabase project (`lumio-staging`) and repository are
 | 2026-11-01 | Auth helpers in `private` schema | Not exposed as PostgREST RPC endpoints (Supabase advisor 0029) |
 | 2026-11-01 | Single `/auth/confirm` handler for email + OAuth | One audited entry point, open-redirect-safe |
 | 2026-11-01 | Holding route `[section]` for unbuilt areas | Every nav item works and states honestly that it isn't built; real routes override it |
+| 2026-11-01 | Stay on Supabase **Free** plan | Owner decision. Free alternatives used: HIBP range check for breached passwords, cached reference data, graceful "unavailable" state for a paused project, no reliance on paid backups (migrations in Git are the schema record) |
+| 2026-11-01 | Invite codes generated by the parent, entered by the student | The student (the data subject) makes the final decision to share; no email needed, so it works within Free-plan email limits |
+| 2026-11-01 | Exam board optional per subject | Many students don't know their board; "not sure yet" is better than a wrong guess the tutor would act on |

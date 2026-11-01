@@ -82,6 +82,16 @@ Tutor orb states — each has exactly one motion: **idle** breathes, **listening
 | `AppShell` | Sidebar ≥1024px, icon rail 768–1023px, top bar + tab bar + "More" sheet <768px |
 | `PageHeader`, `SectionInDevelopment`, `ErrorPanel` | |
 
+### Added in Phase 2
+| Component | Notes |
+|---|---|
+| `ChoiceCard` | Large selectable card (radio or checkbox) with label + description; selected state uses a blue border and soft glow, not a fill |
+| `ChipGroup` | Pill options in a labelled `fieldset`; radio or multi-select; optional deselect; unique `name` per instance via `useId` |
+| `Dialog` | Focus moves in on open and returns on close; Escape closes; bottom sheet on phones |
+| `ServiceUnavailable` | Calm full-page state when the database can't be reached (e.g. paused Free-plan project) — never a sign-out |
+| Onboarding frame | Desktop: vertical step rail (done = blue tick, current = cyan ring, optional steps labelled). Phone: compact "Step n of 7" bar with a blue→violet fill. Steps slide horizontally in the direction of travel; reduced motion fades only |
+| Step headings | Receive focus on each step change so screen readers announce it; `[tabindex="-1"]:focus` has no ring because they aren't interactive |
+
 ## 7. Responsive behaviour
 
 Mobile is designed separately, not shrunk: the phone gets a thumb-reachable tab bar (4 destinations + More), a bottom sheet with descriptions, single-column content, safe-area padding, 44px+ touch targets, and `100dvh` layouts. Tablets get an icon rail to keep content width.

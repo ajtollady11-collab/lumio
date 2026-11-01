@@ -172,13 +172,15 @@ do $$ begin
     'parent must not be able to enable conversation sharing';
 end $$;
 
--- Invite code hashes are never readable by users.
+-- Invite code hashes now live in parent_invitations and are never readable by
+-- users (column grant excludes code_hash). Covered in detail by
+-- onboarding_and_linking.sql; re-asserted here so this suite stands alone.
 set local role authenticated;
 select pg_temp.act_as('00000000-0000-4000-8000-00000000000c');
 do $$ begin
   begin
-    perform invite_code_hash from public.parent_student_links;
-    raise exception 'invite_code_hash must not be readable';
+    perform code_hash from public.parent_invitations;
+    raise exception 'code_hash must not be readable';
   exception when insufficient_privilege then null;
   end;
 end $$;

@@ -2,7 +2,7 @@
 
 > Source of truth: `supabase/migrations/*.sql`. This document explains intent; when they disagree, the migrations win and this file must be fixed.
 > Project: Supabase `lumio` (ref `axyavuiaxcgzzyjxepzp`), Postgres 17, region eu-west-2 (London).
-> Last updated: 2026-11-01.
+> Last updated: 2026-11-01 (Phase 2 onboarding).
 
 ## 1. Conventions
 
@@ -23,13 +23,16 @@
 | 0003 | `20261101000300_curriculum.sql` | qualifications → boards → subjects → specifications → modules → topics → objectives, assessment criteria, `student_subjects`, reference seed |
 | 0004 | `20261101000400_commerce_usage_audit.sql` | `subscription_plans` (seeded), `subscriptions`, `usage_events`, `usage_current_month` view, `audit_logs` |
 | 0005 | `20261101000500_policy_hardening.sql` | helpers moved to `private`, consolidated policies, FK indexes |
+| 0006 | `20261101000600_onboarding.sql` | onboarding columns on `student_profiles`, `qualification_exam_boards`, rebuilt `student_subjects`, `examination_dates`, `parent_invitations`; consent and display-name triggers |
+| 0007 | `20261101000700_onboarding_functions.sql` | invitation create/preview/accept/revoke, unlink, onboarding completion functions; invite rate limiting |
 
 ## 3. Entity map (current)
 
 ```
 auth.users ─1:1─ profiles (role: student|parent)
-                  ├─1:1─ student_profiles ─1:N─ student_subjects ─N:1─ specifications
-                  ├─1:1─ parent_profiles
+                  ├─1:1─ student_profiles ─1:N─ student_subjects (subject, qualification, board?, grades, confidence)
+                  │                       └─1:N─ examination_dates
+                  ├─1:1─ parent_profiles ─1:N─ parent_invitations (hashed code, 7-day expiry, single use)
                   ├─N:M─ parent_student_links (status, share_* scopes)
                   ├─1:N─ subscriptions ─N:1─ subscription_plans
                   └─1:N─ usage_events
@@ -45,13 +48,33 @@ private.staff_members (admin/support) · audit_logs (append-only)
 ### Identity
 | Table | Purpose | User can write |
 |---|---|---|
-| `profiles` | One per auth user. `role`, `display_name`, `onboarding_completed_at` | `display_name`, `onboarding_completed_at` (own row) |
-| `student_profiles` | First name, `age_band`, `school_year` (7–14), learning preferences, weekly goal, timezone, `parental_consent` | All except `parental_consent` (own row) |
+| `profiles` | One per auth user. `role`, `display_name`, `onboarding_completed_at` | `display_name` only (own row). `onboarding_completed_at` is set **only** by `complete_student_onboarding()` / `complete_parent_onboarding()`, which check the answers are complete |
+| `student_profiles` | First name, `age_band`, `school_year` (7–14), `education_level`, `primary_qualification_id`, learning preferences, `academic_goals` (≤600 chars), `onboarding_step` (1–8, for cross-device resume), weekly goal, timezone, `parental_consent` | All except `parental_consent` (own row). Choosing the under-13 band sets consent to `pending` by trigger |
 | `parent_profiles` | First name, weekly report opt-in | own row |
 | `private.staff_members` | Admin/support staff. Service role / SQL only | never |
 
+### Studies (Phase 2)
+| Table | Purpose |
+|---|---|
+| `qualification_exam_boards` | Which boards offer which qualification (GCSE/AS/A-level × AQA, Edexcel, OCR, WJEC; International GCSE × Pearson Edexcel only). Read-only reference |
+| `student_subjects` | One row per student per subject (unique). Qualification required; exam board **optional** ("not sure yet"); composite FK guarantees the board offers that qualification. `current_grade` / `target_grade` validated against the qualification's scale by trigger (`private.grade_is_valid`). Max 15 per student |
+| `examination_dates` | Student's exam papers: subject, qualification, board, date (2024–2040), notes (≤200). Unique per student/subject/date/notes; max 60. Parents read via `parent_can_view(…, 'activity')` |
+
 ### Family
-`parent_student_links` — `pending → active → revoked`. Invite codes stored only as SHA-256 hashes (`invite_code_hash`, not readable by users). Scopes: `share_activity` (default on), `share_results` (default on), `share_conversations` (**default off**). Only the **student** may change scopes. Roles of both ends enforced by trigger.
+`parent_student_links` — `pending → active → revoked`. Created only by `accept_parent_invitation()`.
+
+`parent_invitations` — one row per code a parent generates. Code: 12 Crockford base-32 characters (60 bits), shown once, stored only as a SHA-256 hash (`code_hash` has no user grant). Status `pending → accepted | revoked | expired`; expires after 7 days; single use. Parents read their own rows (minus the hash).
+
+Functions (all `security definer`, execute granted to `authenticated` only, each checks the caller's role):
+| Function | Who | Does |
+|---|---|---|
+| `create_parent_invitation()` | parent | Issues a code; max 5 open at once |
+| `preview_parent_invitation(code)` | student | Returns status + parent's first name so the student can confirm before linking |
+| `accept_parent_invitation(code)` | student | Creates the active link, marks the code used, grants consent for under-13s, writes an audit row |
+| `revoke_parent_invitation(id)` | parent | Cancels an unused code |
+| `unlink_parent_student(link_id)` | either side | Ends a link (audited) |
+
+Wrong codes are recorded in `audit_logs`; after **10 failed attempts in an hour** further attempts return `rate_limited`. Functions return a status instead of raising so the failed-attempt record is not rolled back. Scopes: `share_activity` (default on), `share_results` (default on), `share_conversations` (**default off**). Only the **student** may change scopes. Roles of both ends enforced by trigger.
 
 Helpers: `private.parent_can_view(student, scope)`, `private.is_linked_with(other)`. All future student-data tables add a parent read policy using `parent_can_view(student_id, '<scope>')`.
 
@@ -69,7 +92,7 @@ Reference vocabulary is seeded (4 qualifications, 4 boards, 13 subjects). **No s
 
 | Phase | Tables |
 |---|---|
-| 2 | `examination_dates`, link invite/accept functions, consent records for under-13s |
+| 2 | ✅ done (0006–0007). Still to do: a separate consent-record table if legal review requires more than the link + audit trail |
 | 3 | `tutors`, `tutor_memory` (structured facts: strengths, misconceptions, preferences), `conversations`, `messages` |
 | 4 | `lessons`, `lesson_plans`, `lesson_activities`, `lesson_resources` (slides/diagram specs) |
 | 5 | `flashcard_decks`, `flashcards` + review state (SM-2/FSRS), `quizzes`, `quiz_questions`, `quiz_attempts`, `assessments`, `assessment_results`, `notes`, `revision_plans`, `revision_tasks`, curriculum embeddings (pgvector) |
@@ -91,7 +114,9 @@ The spec's `users` table is Supabase `auth.users`; `ai_usage` and `ai_cost_event
 * anon can read only public vocabulary and plans;
 * `account_role: "admin"` in sign-up metadata resolves to `student`.
 
-Last run: **2026-11-01 — all passed** (with a negative control confirming failed assertions abort the run). Rerun after every migration that touches policies.
+`supabase/tests/onboarding_and_linking.sql` (Phase 2, same style) asserts: onboarding cannot be marked complete directly or before the required answers exist; grade scales and board/qualification pairs are enforced; subject and exam caps; under-13 consent becomes `pending`; invitation codes are single-use, expire, can be revoked, can only be accepted by students, are hashed and unreadable; the 11th wrong code in an hour is refused; parents see exam dates only through an active link with activity sharing; unlinking removes access.
+
+Last run of both suites: **2026-11-01 — all passed**, with no test data left behind (with a negative control confirming failed assertions abort the run). Rerun after every migration that touches policies.
 
 ## 7. Regenerating types
 

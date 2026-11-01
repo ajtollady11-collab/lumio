@@ -2,7 +2,8 @@
 
 > Lumio serves children. Security and privacy are product requirements, not hardening tasks.
 > Status: ✅ implemented · 🔜 planned (phase) · ⚠️ needs a decision or external action.
-> Last updated: 2026-11-01.
+> Last updated: 2026-11-01 (Phase 2 onboarding).
+> **Plan constraint:** Lumio stays on the Supabase **Free** plan during development. Nothing below depends on a paid Supabase feature; where Supabase's paid option exists we use a free equivalent (noted inline).
 
 ## 1. Secrets and configuration
 
@@ -22,11 +23,12 @@
 | Supabase Auth, cookie sessions via `@supabase/ssr`; refresh in `proxy.ts` | ✅ |
 | JWTs verified with `getClaims()` (signature check), never trusting `getSession()` on the server | ✅ |
 | Email verification required before sign-in | ⚠️ confirm "Confirm email" is ON in Supabase Auth settings (default ON) |
-| Password policy: 10–72 chars, length over complexity (NCSC guidance); Supabase leaked-password protection | ✅ app side · ⚠️ enable leaked-password protection in Supabase (Pro plan feature) |
+| Password policy: 10–72 chars, length over complexity (NCSC guidance) | ✅ |
+| Breached/common passwords refused **without** Supabase's paid leaked-password protection: (1) local blocklist of common passwords and patterns, and passwords containing the user's name or email; (2) Have I Been Pwned *range* check — only the first 5 characters of the password's SHA-1 hash leave our server (k-anonymity), 2.5 s timeout, fails open so an outage never blocks sign-up. Applied on sign-up and password reset, server-side | ✅ `src/lib/auth/password-check.ts` + tests. The Supabase advisor will keep showing "leaked password protection disabled" — expected on Free |
 | No account enumeration in sign-in, sign-up or reset messages | ✅ |
 | Open-redirect-safe `next` parameter | ✅ `safeRedirectPath` + tests |
 | Google OAuth only when explicitly enabled | ✅ flag `NEXT_PUBLIC_AUTH_GOOGLE_ENABLED` |
-| Auth rate limits | ✅ Supabase built-in · 🔜 app-level limits on AI endpoints (3) |
+| Auth rate limits | ✅ Supabase built-in (Free plan limits) · ✅ invite-code guessing: 10 failures/hour per student, recorded in `audit_logs` · 🔜 app-level limits on AI endpoints (3) |
 | MFA for staff/admin accounts | 🔜 7 (required before admin dashboard ships) |
 
 ## 3. Authorisation
@@ -37,6 +39,9 @@
 | RLS on every table; explicit column grants; deny-by-default | ✅ |
 | Roles: student, parent (self-selected at sign-up, validated by trigger); staff only via `private.staff_members` | ✅ |
 | Users cannot change their role or consent status | ✅ tested |
+| Onboarding cannot be skipped: `onboarding_completed_at` is not user-writable; only the completion functions set it, after checking required answers in the database. Unfinished users are redirected to `/onboarding` server-side; step URLs are clamped to the furthest step the saved data allows | ✅ tested (SQL + unit) |
+| Parent–student linking only through single-use, 7-day, hashed, 60-bit invite codes that the **student** enters and confirms (seeing the parent's first name first). Either side can unlink | ✅ tested |
+| Intentional `security definer` RPCs in `public` (`create/preview/accept/revoke_parent_invitation`, `unlink_parent_student`, `complete_*_onboarding`): each checks `auth.uid()` and role, sets `search_path = ''`, is executable by `authenticated` only. The Supabase advisor lists these as warnings by design | ✅ |
 | Students cannot read other students' data | ✅ tested |
 | Parents read only **actively linked** children, only within student-controlled scopes; conversations private by default | ✅ tested |
 | Billing, usage and audit tables writable only by server (secret key) | ✅ tested |
@@ -54,7 +59,7 @@
 
 ## 5. Audit & monitoring
 
-* `audit_logs` append-only (update/delete blocked by trigger) ✅. Write entries for: link created/accepted/revoked, sharing changes, consent changes, staff role grants, plan/allowance edits, data exports/deletions. 🔜 2+
+* `audit_logs` append-only (update/delete blocked by trigger) ✅. ✅ written for: invitation accepted, failed code attempts, link removed. 🔜 Still to add: sharing changes, sharing changes, consent changes, staff role grants, plan/allowance edits, data exports/deletions. 🔜 2+
 * Error reporting with PII scrubbing; structured logs without message content. 🔜 8
 
 ## 6. Children's data — UK GDPR & the Age Appropriate Design Code
@@ -64,8 +69,8 @@
 | Best interests of the child | Learning-first design; gamification rewards learning, not screen time | 🔜 6 |
 | Data minimisation | Age **band** not date of birth; first name only; no school name, address or phone | ✅ schema |
 | Default settings / privacy by default | Tutor conversations not shared with parents unless the student opts in | ✅ schema |
-| Parental controls transparency | Students can see what a linked parent can see, and change scopes | ✅ schema · 🔜 UI 2 |
-| Age assurance + parental consent | Under-13s (UK age of digital consent) need verified parental consent before using AI features; `parental_consent` status is server-controlled | ✅ schema · 🔜 flow 2 |
+| Parental controls transparency | Students see each linked parent, exactly what they can see, and can switch activity/results sharing off or unlink. Conversation sharing is off and not offered to parents | ✅ UI (Settings → Family) |
+| Age assurance + parental consent | Under-13s (UK age of digital consent): choosing that band sets consent to `pending` (trigger); it becomes `granted` only when a parent links via an invite the child accepts. Dashboard explains this. AI features must check consent before running | ✅ flow · 🔜 enforce at AI endpoints (3) · ⚠️ legal review of whether parent-account linking is sufficient verification |
 | Detrimental use / nudges | No streak-loss guilt mechanics, no dark patterns in upgrade flows | 🔜 6, 7 |
 | Profiling off by default (except core service) | Learning profile is the core service; no advertising or third-party profiling | ✅ policy |
 | Geolocation off | Not collected | ✅ |

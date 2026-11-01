@@ -1,14 +1,14 @@
 # Lumio — Development Roadmap
 
 > Record of completed work and what's next. Rule: a phase starts only after the previous one is verified.
-> Last updated: 2026-11-01.
+> Last updated: 2026-11-01 (Phase 2 onboarding).
 
 ## Status at a glance
 
 | Phase | Scope | Status |
 |---|---|---|
 | 1 | Foundation | **Built, verified and deployed** — Supabase auth URL settings and a live sign-up test outstanding |
-| 2 | User experience: onboarding, profiles, linking, dashboards | Not started |
+| 2 | User experience: onboarding, profiles, linking, dashboards | **Onboarding, linking and dashboard foundations built and tested** — live end-to-end check by the owner outstanding |
 | 3 | AI tutor: customisation, routing, context, memory, chat | Not started |
 | 4 | Live learning: lessons, slides, diagrams, voice | Not started |
 | 5 | Academic systems: curriculum content, revision, flashcards, quizzes, exam practice, marking | Not started |
@@ -55,16 +55,43 @@
 - [x] Live verification (2026-11-01): sign-up email sent and confirmed, password sign-in on production succeeded (Supabase auth logs), profile row created with role `student`
 - [ ] Not yet verified live: password reset, sign-out, parent sign-up and role redirect, Google (disabled)
 - [ ] Email templates switched to token-hash links (cross-device confirmation) and a custom SMTP sender (Supabase's default sender is rate-limited and not for production)
-- [ ] Leaked-password protection (Supabase advisor warning; requires Supabase Pro)
-- [ ] `SUPABASE_SECRET_KEY` added to Vercel (needed from Phase 2)
+- [x] ~~Leaked-password protection (Supabase Pro)~~ — replaced by a free equivalent in Phase 2 (common-password list + Have I Been Pwned range check). Owner decision: stay on Supabase Free
+- [ ] `SUPABASE_SECRET_KEY` added to Vercel — **not needed yet**: all Phase 2 work runs as the signed-in user. Needed from Phase 3 (usage ledger)
 
-## Phase 2 — User experience (next)
-- Multi-step student onboarding (qualification, boards, subjects, target grades, exam dates, learning preferences, age band) with animated progress
-- Under-13 parental consent flow
-- Parent onboarding; invite-code linking with acceptance and audit logging; student sharing controls UI
-- Student dashboard v1 and parent dashboard v1 (real data only; empty states otherwise)
-- Security headers / CSP; Playwright E2E for auth and linking
-- Tables: `examination_dates`; link RPCs
+## Phase 2 — User experience
+
+### Done (2026-11-01)
+- [x] **Student onboarding, 8 steps**: about you (name, age band, school year, level) → qualification → subjects (13, searchable, removable) → exam board per subject (filtered to boards that offer the qualification; "not sure yet" allowed) → current/target grades on the right scale, confidence, goals → exam dates (add/edit/remove, countdown) → learning preferences → summary
+- [x] Every step saves to the database; resume on any device from the saved step; step URLs can't skip ahead; completion re-checked in Postgres
+- [x] Under-13s: consent set to pending automatically; explained to the student; granted when a parent links
+- [x] **Parent onboarding**: name → optional invite; can finish and invite later
+- [x] **Invitation linking**: parent generates a 12-character code (hashed, 7-day, single-use, max 5 open); student previews the parent's first name, then accepts; parent can cancel codes; either side can unlink; 10 wrong codes/hour limit; audit log entries
+- [x] Multiple children per parent (data model and dashboard list)
+- [x] **Parent dashboard foundation**: empty state with working "Invite your child", pending codes, linked-child cards (name, level, year, subjects) — no analytics yet, by design
+- [x] **Student dashboard** now shows the student's real subjects, exam countdowns and preferences; nothing invented
+- [x] **Settings**: students edit every onboarding answer (same rows, no duplicates) and manage family sharing; parents edit their name and children
+- [x] Privacy: tutor conversations never shared by default and not offered to parents; students can switch activity/results sharing off
+- [x] Free-plan resilience: breached-password check without Supabase Pro; cached reference data; friendly "temporarily unavailable" screen if the database is paused or unreachable; save failures keep the user's answers and offer "Try again"
+
+### Verification (2026-11-01)
+| Check | Result |
+|---|---|
+| `tsc --noEmit` / ESLint | 0 errors / 0 problems |
+| Vitest | 12 files, 77 tests passing — includes a full click-through of all 8 student steps with server calls mocked, failure-and-retry, under-13 notice, board filtering |
+| `next build` (production) | succeeds; 29 routes |
+| SQL: `onboarding_and_linking.sql` against live DB | all passed (completion guards, grade scales, caps, consent, invite expiry/reuse/revoke/role/rate limit, parent visibility, unlink) |
+| SQL: `rls_permissions.sql` against live DB | all passed (updated for the new invitations table) |
+| Test data left behind | none (checked) |
+| Visual check (Playwright, 1440 px and 390 px) | steps 1, 3–6, 8 render correctly; no console errors; no horizontal scroll |
+| Bug found and fixed in testing | impossible dates such as 30 February were accepted by the form (database would still have refused) |
+
+### Outstanding
+- [ ] **Live end-to-end run on production by the owner** (I can't create accounts or type passwords on the live site): student sign-up → all 8 steps → dashboard; parent sign-up (second email) → code → student accepts → child appears; unlink
+- [ ] Custom SMTP sender — Supabase Free's built-in email sender allows only a few emails per hour, so testing many sign-ups in a row will hit that limit
+- [ ] Playwright E2E against a test Supabase project (needs a second free project or local Supabase) — currently covered by component tests + SQL tests
+- [ ] Nonce-based Content Security Policy
+- [ ] Audit entries for sharing-switch changes
+- [ ] Legal review: is parent-account linking sufficient verification of consent for under-13s?
 
 ## Phases 3–8
 See `LUMIO_AI_ARCHITECTURE.md` (3–6), `LUMIO_COST_CONTROL.md` (7) and `LUMIO_SECURITY_REQUIREMENTS.md` (release gates, 8). Each phase adds its tables to `LUMIO_DATABASE_SCHEMA.md` §5 with RLS tests before UI work begins.

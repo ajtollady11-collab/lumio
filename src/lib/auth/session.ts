@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { isSupabaseConfigured } from "@/lib/config/env";
+import { isUnavailable } from "@/lib/errors";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Enums } from "@/types/database";
 
@@ -21,40 +22,76 @@ export type Viewer = {
   onboarded: boolean;
 };
 
-export const getViewer = cache(async (): Promise<Viewer | null> => {
-  if (!isSupabaseConfigured) return null;
+/**
+ * Distinguishes "not signed in" from "couldn't check". On the Supabase free
+ * plan a project can be paused or briefly unreachable; treating that as signed
+ * out would wrongly bounce people to the sign-in page.
+ */
+export type ViewerState =
+  { status: "signed_in"; viewer: Viewer } | { status: "signed_out" } | { status: "unavailable" };
 
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.auth.getClaims();
-  const claims = data?.claims;
-  if (error || !claims?.sub) return null;
+export const getViewerState = cache(async (): Promise<ViewerState> => {
+  if (!isSupabaseConfigured) return { status: "signed_out" };
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, display_name, onboarding_completed_at")
-    .eq("id", claims.sub)
-    .maybeSingle();
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.auth.getClaims();
+    const claims = data?.claims;
+    if (error) {
+      return isUnavailable({ message: error.message, status: error.status })
+        ? { status: "unavailable" }
+        : { status: "signed_out" };
+    }
+    if (!claims?.sub) return { status: "signed_out" };
 
-  // A verified user without a profile row means the sign-up trigger failed;
-  // treat as signed out rather than rendering a half-built account.
-  if (!profile) return null;
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role, display_name, onboarding_completed_at")
+      .eq("id", claims.sub)
+      .maybeSingle();
 
-  return {
-    id: claims.sub,
-    email: typeof claims.email === "string" ? claims.email : null,
-    role: profile.role,
-    displayName: profile.display_name,
-    onboarded: profile.onboarding_completed_at !== null,
-  };
+    if (profileError) {
+      return isUnavailable(profileError) ? { status: "unavailable" } : { status: "signed_out" };
+    }
+    // A verified user without a profile means the sign-up trigger failed.
+    if (!profile) return { status: "signed_out" };
+
+    return {
+      status: "signed_in",
+      viewer: {
+        id: claims.sub,
+        email: typeof claims.email === "string" ? claims.email : null,
+        role: profile.role,
+        displayName: profile.display_name,
+        onboarded: profile.onboarding_completed_at !== null,
+      },
+    };
+  } catch {
+    // Network-level failure (DNS, timeout, paused project).
+    return { status: "unavailable" };
+  }
 });
 
-/** For protected pages: returns the viewer or redirects to sign-in. */
+export async function getViewer(): Promise<Viewer | null> {
+  const state = await getViewerState();
+  return state.status === "signed_in" ? state.viewer : null;
+}
+
+export class ServiceUnavailableError extends Error {
+  constructor() {
+    super("Lumio's database is temporarily unavailable.");
+    this.name = "ServiceUnavailableError";
+  }
+}
+
+/** For protected pages: returns the viewer, redirects when signed out, throws when unreachable. */
 export async function requireViewer(next?: string): Promise<Viewer> {
-  const viewer = await getViewer();
-  if (!viewer) {
+  const state = await getViewerState();
+  if (state.status === "unavailable") throw new ServiceUnavailableError();
+  if (state.status === "signed_out") {
     redirect(next ? `/sign-in?next=${encodeURIComponent(next)}` : "/sign-in");
   }
-  return viewer;
+  return state.viewer;
 }
 
 /** Sends each role to its own home. */
