@@ -513,6 +513,44 @@ export type Database = {
           },
         ]
       }
+      student_learning_goals: {
+        Row: {
+          created_at: string
+          student_id: string
+          updated_at: string
+          weekly_lessons: number | null
+          weekly_minutes: number | null
+          weekly_revision_sessions: number | null
+          weekly_subjects: number | null
+        }
+        Insert: {
+          created_at?: string
+          student_id: string
+          updated_at?: string
+          weekly_lessons?: number | null
+          weekly_minutes?: number | null
+          weekly_revision_sessions?: number | null
+          weekly_subjects?: number | null
+        }
+        Update: {
+          created_at?: string
+          student_id?: string
+          updated_at?: string
+          weekly_lessons?: number | null
+          weekly_minutes?: number | null
+          weekly_revision_sessions?: number | null
+          weekly_subjects?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_learning_goals_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "student_profiles"
+            referencedColumns: ["profile_id"]
+          },
+        ]
+      }
       student_profiles: {
         Row: {
           academic_goals: string | null
@@ -528,7 +566,6 @@ export type Database = {
           school_year: number | null
           timezone: string
           updated_at: string
-          weekly_study_minutes_goal: number | null
         }
         Insert: {
           academic_goals?: string | null
@@ -544,7 +581,6 @@ export type Database = {
           school_year?: number | null
           timezone?: string
           updated_at?: string
-          weekly_study_minutes_goal?: number | null
         }
         Update: {
           academic_goals?: string | null
@@ -560,7 +596,6 @@ export type Database = {
           school_year?: number | null
           timezone?: string
           updated_at?: string
-          weekly_study_minutes_goal?: number | null
         }
         Relationships: [
           {
@@ -569,6 +604,38 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_streaks: {
+        Row: {
+          best_streak: number
+          current_streak: number
+          last_active_date: string | null
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          best_streak?: number
+          current_streak?: number
+          last_active_date?: string | null
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          best_streak?: number
+          current_streak?: number
+          last_active_date?: string | null
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_streaks_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "student_profiles"
+            referencedColumns: ["profile_id"]
           },
         ]
       }
@@ -632,6 +699,75 @@ export type Database = {
             columns: ["exam_board_id"]
             isOneToOne: false
             referencedRelation: "exam_boards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      study_activity_events: {
+        Row: {
+          active_seconds: number
+          activity_type: Database["public"]["Enums"]["study_activity_type"]
+          completed: boolean
+          created_at: string
+          id: string
+          local_date: string
+          occurred_at: string
+          qualifies: boolean | null
+          score_percent: number | null
+          source_id: string | null
+          source_table: string | null
+          started_at: string | null
+          student_id: string
+          subject_id: string | null
+          title: string | null
+        }
+        Insert: {
+          active_seconds?: number
+          activity_type: Database["public"]["Enums"]["study_activity_type"]
+          completed?: boolean
+          created_at?: string
+          id?: string
+          local_date: string
+          occurred_at?: string
+          qualifies?: boolean | null
+          score_percent?: number | null
+          source_id?: string | null
+          source_table?: string | null
+          started_at?: string | null
+          student_id: string
+          subject_id?: string | null
+          title?: string | null
+        }
+        Update: {
+          active_seconds?: number
+          activity_type?: Database["public"]["Enums"]["study_activity_type"]
+          completed?: boolean
+          created_at?: string
+          id?: string
+          local_date?: string
+          occurred_at?: string
+          qualifies?: boolean | null
+          score_percent?: number | null
+          source_id?: string | null
+          source_table?: string | null
+          started_at?: string | null
+          student_id?: string
+          subject_id?: string | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_activity_events_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "study_activity_events_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
             referencedColumns: ["id"]
           },
         ]
@@ -861,6 +997,7 @@ export type Database = {
       }
     }
     Functions: {
+      get_dashboard_activity: { Args: never; Returns: Json }
       accept_parent_invitation: {
         Args: { p_code: string }
         Returns: {
@@ -914,6 +1051,14 @@ export type Database = {
       qualification_level: "gcse" | "igcse" | "as_level" | "a_level"
       report_scope: "activity" | "results" | "conversations"
       staff_role: "admin" | "support"
+      study_activity_type:
+        | "lesson"
+        | "tutor_session"
+        | "quiz"
+        | "flashcards"
+        | "exam_practice"
+        | "revision"
+        | "notes"
       subject_confidence: "difficult" | "neutral" | "confident"
       subscription_status:
         | "trialing"
@@ -1073,6 +1218,7 @@ export const Constants = {
       qualification_level: ["gcse", "igcse", "as_level", "a_level"],
       report_scope: ["activity", "results", "conversations"],
       staff_role: ["admin", "support"],
+      study_activity_type: ["lesson", "tutor_session", "quiz", "flashcards", "exam_practice", "revision", "notes"],
       subject_confidence: ["difficult", "neutral", "confident"],
       subscription_status: [
         "trialing",

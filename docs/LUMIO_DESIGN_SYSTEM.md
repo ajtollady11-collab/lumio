@@ -92,6 +92,19 @@ Tutor orb states — each has exactly one motion: **idle** breathes, **listening
 | Onboarding frame | Desktop: vertical step rail (done = blue tick, current = cyan ring, optional steps labelled). Phone: compact "Step n of 7" bar with a blue→violet fill. Steps slide horizontally in the direction of travel; reduced motion fades only |
 | Step headings | Receive focus on each step change so screen readers announce it; `[tabindex="-1"]:focus` has no ring because they aren't interactive |
 
+### Added for the student dashboard
+| Component | Notes |
+|---|---|
+| `Panel` / `EmptyState` | Dashboard section frame (surface, icon + title, optional link/action); `highlight` adds a cyan ring and glow for time-sensitive content. Empty states use a dashed border and say what will appear and why |
+| `RevealGroup` / `Reveal` | The dashboard's single orchestrated entrance — sections rise in reading order (50 ms stagger) |
+| `ProgressBar` | Fills on mount; blue→violet, green when a goal is met; `role="progressbar"` with values |
+| `SubjectCard` | Per-subject accent (thin top line, soft corner glow, target chip, hover shadow) from `subjectAccent(slug)` — nine hues inside the blue/violet/cyan family plus warm accents for humanities. Colour never carries meaning alone |
+| Streak calendar | Mon–Sun squares: gradient = qualifying study, outline = past without, dashed = future, cyan = today |
+| Quick actions | Built areas tinted blue; unbuilt ones neutral with a violet "Soon" chip. Swipeable row on phones, 3/5-column grid above |
+| `DashboardSkeleton` | Mirrors the dashboard grid |
+
+Dashboard layout: 12-column grid on desktop (greeting 8 + streak 4; next-up 7 + exams 5, swapped when an exam is within 14 days; subjects 12; overview 7 + goals 5; activity 12). Phones use a single column ordered by importance: greeting → what to do next → quick actions → exams → subjects → goals → streak → overview → activity.
+
 ## 7. Responsive behaviour
 
 Mobile is designed separately, not shrunk: the phone gets a thumb-reachable tab bar (4 destinations + More), a bottom sheet with descriptions, single-column content, safe-area padding, 44px+ touch targets, and `100dvh` layouts. Tablets get an icon rail to keep content width.

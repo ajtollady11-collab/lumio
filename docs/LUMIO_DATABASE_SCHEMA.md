@@ -2,7 +2,7 @@
 
 > Source of truth: `supabase/migrations/*.sql`. This document explains intent; when they disagree, the migrations win and this file must be fixed.
 > Project: Supabase `lumio` (ref `axyavuiaxcgzzyjxepzp`), Postgres 17, region eu-west-2 (London).
-> Last updated: 2026-11-01 (Phase 2 onboarding).
+> Last updated: 2026-11-01 (student dashboard).
 
 ## 1. Conventions
 
@@ -25,13 +25,17 @@
 | 0005 | `20261101000500_policy_hardening.sql` | helpers moved to `private`, consolidated policies, FK indexes |
 | 0006 | `20261101000600_onboarding.sql` | onboarding columns on `student_profiles`, `qualification_exam_boards`, rebuilt `student_subjects`, `examination_dates`, `parent_invitations`; consent and display-name triggers |
 | 0007 | `20261101000700_onboarding_functions.sql` | invitation create/preview/accept/revoke, unlink, onboarding completion functions; invite rate limiting |
+| 0008 | `20261101000800_learning_activity.sql` | `study_activity_events` ledger, `student_streaks`, `student_learning_goals` (replaces `student_profiles.weekly_study_minutes_goal`), timezone validation, `get_dashboard_activity()` |
 
 ## 3. Entity map (current)
 
 ```
 auth.users ─1:1─ profiles (role: student|parent)
                   ├─1:1─ student_profiles ─1:N─ student_subjects (subject, qualification, board?, grades, confidence)
-                  │                       └─1:N─ examination_dates
+                  │                       ├─1:N─ examination_dates
+                  │                       ├─1:N─ study_activity_events (read-only to students)
+                  │                       ├─1:1─ student_streaks (trigger-maintained)
+                  │                       └─1:1─ student_learning_goals
                   ├─1:1─ parent_profiles ─1:N─ parent_invitations (hashed code, 7-day expiry, single use)
                   ├─N:M─ parent_student_links (status, share_* scopes)
                   ├─1:N─ subscriptions ─N:1─ subscription_plans
@@ -59,6 +63,21 @@ private.staff_members (admin/support) · audit_logs (append-only)
 | `qualification_exam_boards` | Which boards offer which qualification (GCSE/AS/A-level × AQA, Edexcel, OCR, WJEC; International GCSE × Pearson Edexcel only). Read-only reference |
 | `student_subjects` | One row per student per subject (unique). Qualification required; exam board **optional** ("not sure yet"); composite FK guarantees the board offers that qualification. `current_grade` / `target_grade` validated against the qualification's scale by trigger (`private.grade_is_valid`). Max 15 per student |
 | `examination_dates` | Student's exam papers: subject, qualification, board, date (2024–2040), notes (≤200). Unique per student/subject/date/notes; max 60. Parents read via `parent_can_view(…, 'activity')` |
+
+### Learning activity (dashboard, migration 0008)
+| Table | Purpose | Who writes |
+|---|---|---|
+| `study_activity_events` | One ledger for every learning feature: type (`lesson`, `tutor_session`, `quiz`, `flashcards`, `exam_practice`, `revision`, `notes`), subject, title, start/end, `active_seconds` (≤4 h), `completed`, `score_percent`, `source_table`+`source_id` (unique → each feature row reports once), `local_date` (study day in the student's timezone, set by trigger). Future timestamps refused | **Server code / feature triggers only** via `private.record_study_activity(...)`. Students: read own rows. No direct user insert/update/delete |
+| `student_streaks` | `current_streak` (run ending on `last_active_date`), `best_streak`. Recomputed from distinct qualifying study days (gaps-and-islands) after every insert/update/delete, and when the timezone changes — so back-dated or removed events can't leave it wrong | Trigger only. Students: read own |
+| `student_learning_goals` | Optional weekly targets: minutes (15–3000), lessons (1–50), subjects (1–15), revision sessions (1–50); at least one must be set | Student, own row (update-then-insert; `student_id` not updatable) |
+
+**What counts** — a generated column `qualifies` defines it once for every feature: completed lessons, quizzes and exam practice; flashcards or revision with ≥ 5 minutes of active time. Tutor chat and notes are recorded (they appear in activity and study time) but do **not** count towards streaks. Simply having the app open is never an event.
+
+**`get_dashboard_activity()`** — `security invoker` (RLS applies), returns everything the dashboard needs in one round trip: totals, this week (Mon–Sun in the student's timezone), the 7-day calendar, streak (current is shown as 0 if the last study day was before yesterday), per-subject last-studied date and assessment average, the 8 most recent events and goals. Raises `LUMIO:wrong_role` for non-students.
+
+**Parents** have no direct read access to these tables. Phase 6 adds scoped reporting functions that respect `share_activity` / `share_results` separately.
+
+`student_profiles.timezone` is now validated against `pg_timezone_names`.
 
 ### Family
 `parent_student_links` — `pending → active → revoked`. Created only by `accept_parent_invitation()`.
@@ -96,7 +115,7 @@ Reference vocabulary is seeded (4 qualifications, 4 boards, 13 subjects). **No s
 | 3 | `tutors`, `tutor_memory` (structured facts: strengths, misconceptions, preferences), `conversations`, `messages` |
 | 4 | `lessons`, `lesson_plans`, `lesson_activities`, `lesson_resources` (slides/diagram specs) |
 | 5 | `flashcard_decks`, `flashcards` + review state (SM-2/FSRS), `quizzes`, `quiz_questions`, `quiz_attempts`, `assessments`, `assessment_results`, `notes`, `revision_plans`, `revision_tasks`, curriculum embeddings (pgvector) |
-| 6 | `study_sessions`, `study_activity_events`, `topic_mastery`, `student_xp`, `achievements`, `weekly_reports`, `notifications` |
+| 6 | `topic_mastery`, `student_xp`, `achievements`, `weekly_reports`, `notifications`, parent reporting functions. (`study_activity_events`, streaks and goals were brought forward to 0008; a separate `study_sessions` table proved unnecessary — the ledger covers it) |
 | 7 | `subscription_members` (family seats), Stripe event idempotency table, `ai_cost_rollups` |
 
 The spec's `users` table is Supabase `auth.users`; `ai_usage` and `ai_cost_events` are unified as `usage_events` (one ledger avoids double counting).
@@ -116,7 +135,9 @@ The spec's `users` table is Supabase `auth.users`; `ai_usage` and `ai_cost_event
 
 `supabase/tests/onboarding_and_linking.sql` (Phase 2, same style) asserts: onboarding cannot be marked complete directly or before the required answers exist; grade scales and board/qualification pairs are enforced; subject and exam caps; under-13 consent becomes `pending`; invitation codes are single-use, expire, can be revoked, can only be accepted by students, are hashed and unreadable; the 11th wrong code in an hour is refused; parents see exam dates only through an active link with activity sharing; unlinking removes access.
 
-Last run of both suites: **2026-11-01 — all passed**, with no test data left behind (with a negative control confirming failed assertions abort the run). Rerun after every migration that touches policies.
+`supabase/tests/learning_activity.sql` (0008) asserts: invalid timezones refused; idempotent recording; future events refused; streak current/best computed correctly and recomputed after deletion; non-qualifying events (abandoned quiz, 3-minute flashcards, tutor chat, notes) don't count; study days follow the student's timezone and are re-derived when it changes; dashboard totals/averages/calendar are correct; students cannot write events or streaks or call the private recorder; goal ranges and "at least one" enforced; a second and third student see only their own data and can't alter another's goals; parents have no direct access and can't call the student dashboard; anonymous users are refused.
+
+Last run of all three suites: **2026-11-01 — all passed**, with no test data left behind (with a negative control confirming failed assertions abort the run). Rerun after every migration that touches policies.
 
 ## 7. Regenerating types
 

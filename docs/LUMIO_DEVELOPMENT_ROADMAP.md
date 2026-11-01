@@ -1,7 +1,7 @@
 # Lumio — Development Roadmap
 
 > Record of completed work and what's next. Rule: a phase starts only after the previous one is verified.
-> Last updated: 2026-11-01 (Phase 2 onboarding).
+> Last updated: 2026-11-01 (student dashboard).
 
 ## Status at a glance
 
@@ -9,10 +9,11 @@
 |---|---|---|
 | 1 | Foundation | **Built, verified and deployed** — Supabase auth URL settings and a live sign-up test outstanding |
 | 2 | User experience: onboarding, profiles, linking, dashboards | **Complete — built, tested and verified live** (2026-11-01) |
+| 2b | Intelligent student dashboard (owner's "Prompt 3") | **Built and tested** (2026-11-01) — live check by the owner outstanding |
 | 3 | AI tutor: customisation, routing, context, memory, chat | Not started |
 | 4 | Live learning: lessons, slides, diagrams, voice | Not started |
 | 5 | Academic systems: curriculum content, revision, flashcards, quizzes, exam practice, marking | Not started |
-| 6 | Progress & family: analytics, gamification, reports, exam tracking, notifications | Not started |
+| 6 | Progress & family: analytics, gamification, reports, exam tracking, notifications | Foundations done in 2b (activity ledger, streaks, goals); rest not started |
 | 7 | Commercial: Stripe, subscriptions, allowances, cost accounting, admin | Not started (schema foundations exist) |
 | 8 | Testing & launch | Not started |
 
@@ -94,6 +95,43 @@
 - [ ] Nonce-based Content Security Policy
 - [ ] Audit entries for sharing-switch changes
 - [ ] Legal review: is parent-account linking sufficient verification of consent for under-13s?
+
+## Phase 2b — Intelligent student dashboard (owner's "Prompt 3")
+
+> The owner's prompt calls this "Phase 3". In this roadmap Phase 3 remains the AI tutor; the dashboard is recorded as 2b because it completes the student experience and lays Phase 6's data foundations.
+
+### Done (2026-11-01)
+- [x] Personal greeting: time of day in the student's timezone, one factual summary line (exam countdown / streak / lapse / week's study / what they've set up)
+- [x] Quick actions: five real links; four lead to honest "coming later" pages and are labelled "Soon"
+- [x] Learning overview: lessons, active study time, subjects, topics, quiz average, streak — empty states where no data exists (topics: until lessons ship)
+- [x] Subject cards for every subject: qualification, board (or "not set"), target/current grade, next exam, performance from real assessments or "Not assessed yet", last studied
+- [x] Subject pages `/app/subjects` and `/app/subjects/[slug]`
+- [x] Recommendations: rule engine with reason, subject, duration and working link; one per subject; max four
+- [x] Upcoming exams: chronological, days remaining, highlights within 14 days, links to subject exam section; empty state to add dates
+- [x] Recent activity timeline from the activity ledger (type, subject, time, duration, result)
+- [x] Weekly goals: study time, lessons, subjects, revision sessions — editable, stored in Supabase, measured against tracked activity only
+- [x] Study streak: current, best, Mon–Sun calendar; student timezone; only qualifying activities count
+- [x] Personalisation rules (exam soon, new student, lapsed student, under-13 consent)
+- [x] Loading skeleton; responsive desktop and phone layouts
+- [x] Database: migration 0008 (ledger, streaks, goals, dashboard RPC); old unused goal column migrated and dropped
+
+### Verification (2026-11-01)
+| Check | Result |
+|---|---|
+| `tsc` / ESLint | 0 errors / 0 problems |
+| Vitest | 15 files, 119 tests — rule engine (10), dashboard model (13), full dashboard rendering for: new student, no subjects, no exams, exams soon, active student, goals set / not set, lapsed student, under-13; goals editor create / error / edit / remove |
+| SQL: `learning_activity.sql` against live DB | all passed — streak maths, timezone, qualifying rules, idempotency, three separate students, parent and anonymous access |
+| SQL: earlier suites | still pass |
+| Supabase advisors | no new security findings; performance: only "unused index" notices (expected with no traffic yet) |
+| `next build` | succeeds (30 routes) |
+| Visual check (1440 px, 390 px; new and active student) | no console errors, no horizontal scroll; fixed uneven panel heights and phone swipe-row padding |
+| Bug found in testing | "Studied yesterday" showed as "Studied today" (day difference reversed) — fixed and covered by a test |
+
+### Limitations (honest)
+- No feature records activity yet (lessons, quizzes, flashcards arrive in Phases 3–5), so for real students lessons, study time, quiz average, streak, goal progress and recent activity show their empty states until then. The pipeline is tested end to end with test data in SQL.
+- Topic completion/attention needs curriculum topics (Phase 5) and lesson tracking.
+- Timezone defaults to Europe/London; there is no timezone picker yet.
+- Parents can't see activity yet (scoped reporting is Phase 6).
 
 ## Phases 3–8
 See `LUMIO_AI_ARCHITECTURE.md` (3–6), `LUMIO_COST_CONTROL.md` (7) and `LUMIO_SECURITY_REQUIREMENTS.md` (release gates, 8). Each phase adds its tables to `LUMIO_DATABASE_SCHEMA.md` §5 with RLS tests before UI work begins.

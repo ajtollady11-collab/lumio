@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Ellipsis, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { AmbientBackdrop } from "@/components/brand/ambient-backdrop";
 import { LumioLogo, LumioMark } from "@/components/brand/logo";
 import { springs } from "@/components/motion/presets";
@@ -32,22 +32,39 @@ export function AppShell({
   children: ReactNode;
 }) {
   const config = CONFIGS[variant];
-  const pathname = usePathname();
-  const current = activeItem(config, pathname);
 
+  // The current-page highlight reads the URL. It sits in its own Suspense
+  // boundaries so pages with dynamic segments (e.g. /app/subjects/[slug]) can
+  // still prerender the shell; the fallback is the same nav, unhighlighted.
   return (
     <div className="relative min-h-dvh md:flex">
       <AmbientBackdrop intensity="low" />
-      <Sidebar config={config} currentKey={current?.key} account={account} />
+      <Suspense fallback={<Sidebar config={config} account={account} />}>
+        <CurrentSidebar config={config} account={account} />
+      </Suspense>
       <div className="flex min-h-dvh min-w-0 flex-1 flex-col">
         <MobileTopBar home={config.home} account={account} />
         <main id="main" className="flex-1 px-4 pt-6 pb-28 sm:px-6 md:px-8 md:pt-10 md:pb-12 lg:px-12">
           <div className="mx-auto w-full max-w-6xl">{children}</div>
         </main>
       </div>
-      <MobileTabBar config={config} currentKey={current?.key} />
+      <Suspense fallback={<MobileTabBar config={config} />}>
+        <CurrentMobileTabBar config={config} />
+      </Suspense>
     </div>
   );
+}
+
+function useCurrentKey(config: NavConfig) {
+  return activeItem(config, usePathname())?.key;
+}
+
+function CurrentSidebar({ config, account }: { config: NavConfig; account: ReactNode }) {
+  return <Sidebar config={config} account={account} currentKey={useCurrentKey(config)} />;
+}
+
+function CurrentMobileTabBar({ config }: { config: NavConfig }) {
+  return <MobileTabBar config={config} currentKey={useCurrentKey(config)} pathname={usePathname()} />;
 }
 
 function Sidebar({ config, currentKey, account }: { config: NavConfig; currentKey?: string; account: ReactNode }) {
@@ -137,9 +154,8 @@ function MobileTopBar({ home, account }: { home: string; account: ReactNode }) {
   );
 }
 
-function MobileTabBar({ config, currentKey }: { config: NavConfig; currentKey?: string }) {
+function MobileTabBar({ config, currentKey, pathname }: { config: NavConfig; currentKey?: string; pathname?: string }) {
   const [moreOpen, setMoreOpen] = useState(false);
-  const pathname = usePathname();
   const primary = allItems(config).filter((i) => i.primaryOnMobile);
   const secondary = allItems(config).filter((i) => !i.primaryOnMobile);
   const moreActive = secondary.some((i) => i.key === currentKey);

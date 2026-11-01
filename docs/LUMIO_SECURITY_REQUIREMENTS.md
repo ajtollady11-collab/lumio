@@ -40,6 +40,7 @@
 | Roles: student, parent (self-selected at sign-up, validated by trigger); staff only via `private.staff_members` | ✅ |
 | Users cannot change their role or consent status | ✅ tested |
 | Onboarding cannot be skipped: `onboarding_completed_at` is not user-writable; only the completion functions set it, after checking required answers in the database. Unfinished users are redirected to `/onboarding` server-side; step URLs are clamped to the furthest step the saved data allows | ✅ tested (SQL + unit) |
+| Learning activity is server-written only: students can read but not insert, update or delete `study_activity_events` or `student_streaks`, so streaks and goal progress can't be faked from the browser. Dashboard data is fetched per request with the user's own session (RLS) and never shared-cached | ✅ tested (`learning_activity.sql`) |
 | Parent–student linking only through single-use, 7-day, hashed, 60-bit invite codes that the **student** enters and confirms (seeing the parent's first name first). Either side can unlink | ✅ tested |
 | Intentional `security definer` RPCs in `public` (`create/preview/accept/revoke_parent_invitation`, `unlink_parent_student`, `complete_*_onboarding`): each checks `auth.uid()` and role, sets `search_path = ''`, is executable by `authenticated` only. The Supabase advisor lists these as warnings by design | ✅ |
 | Students cannot read other students' data | ✅ tested |

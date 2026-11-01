@@ -87,3 +87,7 @@ Snapshot of published third-party-verified pricing (developersdigest.tech, verif
 ## 8. Evaluation
 
 Golden sets per subject/board (lesson plans, explanations, marking) reviewed by qualified teachers; automated checks for schema validity, curriculum grounding (citations to retrieved objectives) and marking agreement with reference marks. Gate model or prompt changes on these evals (Phase 8: "AI accuracy testing").
+
+## Recommendations (implemented 2026-11-01, no model)
+
+Dashboard recommendations are produced by a deterministic rule engine (`src/lib/recommendations/engine.ts`) over real data: exam dates, the student's own "finding it hard" ratings, quiz/exam-practice averages, last-studied dates, goals, consent status. It costs nothing per request. When the Student Memory Engine exists (Phase 3), weak topics and misconceptions are added as extra rules passed to `buildRecommendations(ctx, [...DEFAULT_RULES, memoryRule])`; an LLM is only worth adding for phrasing, not for deciding.

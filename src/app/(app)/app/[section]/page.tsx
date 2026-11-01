@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { STUDENT_NAV, allItems, findBySlug } from "@/components/shell/navigation";
+import { isBuilt } from "@/components/shell/availability";
 import { SectionInDevelopment } from "@/components/shell/section-in-development";
 
 /*
@@ -9,14 +10,10 @@ import { SectionInDevelopment } from "@/components/shell/section-in-development"
  * precedence over this dynamic segment.
  */
 
-const BUILT = new Set(["settings"]);
-
 export function generateStaticParams() {
   return allItems(STUDENT_NAV)
-    .filter((i) => i.href !== STUDENT_NAV.home)
-    .map((i) => i.href.slice(STUDENT_NAV.home.length + 1))
-    .filter((slug) => !BUILT.has(slug))
-    .map((section) => ({ section }));
+    .filter((i) => !isBuilt(i.href))
+    .map((i) => ({ section: i.href.slice(STUDENT_NAV.home.length + 1) }));
 }
 
 export async function generateMetadata({ params }: PageProps<"/app/[section]">): Promise<Metadata> {
