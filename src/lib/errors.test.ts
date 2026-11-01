@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fromDatabaseError } from "./errors";
+import { fromDatabaseError, wrongAccount } from "./errors";
 
 describe("fromDatabaseError", () => {
   it("maps database rule keys to friendly messages", () => {
@@ -18,6 +18,13 @@ describe("fromDatabaseError", () => {
   it("treats network failures and 5xx as temporary unavailability", () => {
     expect(fromDatabaseError({ message: "TypeError: fetch failed" }).error).toBe("unavailable");
     expect(fromDatabaseError({ message: "upstream", status: 503 }).error).toBe("unavailable");
+  });
+
+  it("explains a session that switched to another account", () => {
+    const f = wrongAccount("parent", "student");
+    expect(f.error).toBe("forbidden");
+    expect(f.message).toMatch(/signed in to a parent account/);
+    expect(f.message).toMatch(/sign back in as the student/);
   });
 
   it("never exposes raw database text", () => {

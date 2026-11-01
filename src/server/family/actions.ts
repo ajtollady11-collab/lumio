@@ -3,7 +3,7 @@
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { getViewerState, type Viewer } from "@/lib/auth/session";
-import { failure, fromDatabaseError, success, type ActionResult, type Failure } from "@/lib/errors";
+import { failure, fromDatabaseError, success, wrongAccount, type ActionResult, type Failure } from "@/lib/errors";
 import { inviteCodeSchema, parentAboutSchema } from "@/lib/onboarding/schemas";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -20,7 +20,7 @@ async function context(role: Viewer["role"]): Promise<Ctx | Failure> {
   const state = await getViewerState();
   if (state.status === "unavailable") return failure("unavailable");
   if (state.status === "signed_out") return failure("session_expired");
-  if (state.viewer.role !== role) return failure("forbidden");
+  if (state.viewer.role !== role) return wrongAccount(state.viewer.role, role);
   return { supabase: await createSupabaseServerClient(), viewer: state.viewer };
 }
 

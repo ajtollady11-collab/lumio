@@ -3,7 +3,7 @@
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { getViewerState } from "@/lib/auth/session";
-import { failure, fromDatabaseError, success, type ActionResult, type Failure } from "@/lib/errors";
+import { failure, fromDatabaseError, success, wrongAccount, type ActionResult, type Failure } from "@/lib/errors";
 import { gradeIsValid } from "@/lib/onboarding/options";
 import {
   aboutSchema,
@@ -36,7 +36,7 @@ async function studentContext(): Promise<StudentContext | Failure> {
   const state = await getViewerState();
   if (state.status === "unavailable") return failure("unavailable");
   if (state.status === "signed_out") return failure("session_expired");
-  if (state.viewer.role !== "student") return failure("forbidden");
+  if (state.viewer.role !== "student") return wrongAccount(state.viewer.role, "student");
   return { supabase: await createSupabaseServerClient(), studentId: state.viewer.id };
 }
 

@@ -24,6 +24,19 @@ export const MESSAGES: Record<ActionError, string> = {
   unknown: "Something went wrong saving that. Try again.",
 };
 
+/**
+ * The session no longer matches the page — most often because someone signed
+ * in to a second Lumio account in another tab (a browser holds one sign-in).
+ */
+export function wrongAccount(signedInAs: "student" | "parent", needed: "student" | "parent"): Failure {
+  return failure(
+    "forbidden",
+    `This browser is now signed in to a ${signedInAs} account, so this ${needed} page can't save. ` +
+      `A browser can only be signed in to one Lumio account at a time — sign out, then sign back in as the ${needed}. ` +
+      `(Tip: use a private window or another browser for the second account.)`,
+  );
+}
+
 /** Database-defined error keys raised as 'LUMIO:<key>' by functions and triggers. */
 const LUMIO_MESSAGES: Record<string, { error: ActionError; message: string }> = {
   invalid_grade: { error: "invalid", message: "One of the grades isn't on that qualification's scale." },
