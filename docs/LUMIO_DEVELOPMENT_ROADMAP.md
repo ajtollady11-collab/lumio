@@ -8,7 +8,7 @@
 | Phase | Scope | Status |
 |---|---|---|
 | 1 | Foundation | **Built, verified and deployed** — Supabase auth URL settings and a live sign-up test outstanding |
-| 2 | User experience: onboarding, profiles, linking, dashboards | **Onboarding, linking and dashboard foundations built and tested** — live end-to-end check by the owner outstanding |
+| 2 | User experience: onboarding, profiles, linking, dashboards | **Complete — built, tested and verified live** (2026-11-01) |
 | 3 | AI tutor: customisation, routing, context, memory, chat | Not started |
 | 4 | Live learning: lessons, slides, diagrams, voice | Not started |
 | 5 | Academic systems: curriculum content, revision, flashcards, quizzes, exam practice, marking | Not started |
@@ -86,7 +86,9 @@
 | Bug found and fixed in testing | impossible dates such as 30 February were accepted by the form (database would still have refused) |
 
 ### Outstanding
-- [ ] **Live end-to-end run on production by the owner** (I can't create accounts or type passwords on the live site): student sign-up → all 8 steps → dashboard; parent sign-up (second email) → code → student accepts → child appears; unlink
+- [x] **Live end-to-end run on production by the owner (2026-11-01)**: student completed all 8 steps; parent signed up and created a code; student accepted; child appears on parent dashboard. Database confirms: link active, conversations not shared, code marked used, audit entries written
+- [x] Found in live testing: signing in to a second account in the same browser replaces the first; stale pages now explain this instead of a generic "no permission" (commit `b3e719e`)
+- [ ] Not yet tried live: unlink, cancelling a code, the under-13 path
 - [ ] Custom SMTP sender — Supabase Free's built-in email sender allows only a few emails per hour, so testing many sign-ups in a row will hit that limit
 - [ ] Playwright E2E against a test Supabase project (needs a second free project or local Supabase) — currently covered by component tests + SQL tests
 - [ ] Nonce-based Content Security Policy
