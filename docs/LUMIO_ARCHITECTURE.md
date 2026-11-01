@@ -115,7 +115,7 @@ Profiles are created by the `on_auth_user_created` trigger. The requested role i
 |---|---|---|
 | Local | `lumio` project (ref `axyavuiaxcgzzyjxepzp`) via `.env.local` | `next dev` |
 | Preview | same project until a staging branch/project is created (Phase 8) | Preview deployments per PR |
-| Production | `lumio` project | Production deployment |
+| Production | `lumio` project | Vercel project `lumio` (`lumio-rose-three.vercel.app`, functions in `lhr1`) |
 
 The previous application's Supabase project (`lumio-staging`) and repository are **not** used or modified.
 

@@ -7,7 +7,7 @@
 
 | Phase | Scope | Status |
 |---|---|---|
-| 1 | Foundation | **Built and verified locally** — external hosting steps outstanding (see below) |
+| 1 | Foundation | **Built, verified and deployed** — Supabase auth URL settings and a live sign-up test outstanding |
 | 2 | User experience: onboarding, profiles, linking, dashboards | Not started |
 | 3 | AI tutor: customisation, routing, context, memory, chat | Not started |
 | 4 | Live learning: lessons, slides, diagrams, voice | Not started |
@@ -48,8 +48,8 @@
 | RLS suite against live database | all assertions pass; negative control fails as expected |
 
 ### Outstanding to close Phase 1
-- [ ] **GitHub**: push to a new `lumio` repository (blocked — see completion report)
-- [ ] **Vercel**: new project linked to that repository, env vars set, first deployment
+- [x] **GitHub**: `ajtollady11-collab/lumio` (new, empty repo; the previous app was renamed to `lumio-legacy` and left untouched)
+- [x] **Vercel**: new project `lumio`, functions in London (`lhr1`), public env vars set, production deployment at `lumio-rose-three.vercel.app` (Vercel Authentication on — only signed-in team members can view until launch)
 - [ ] **Supabase Auth settings** (dashboard): Site URL, redirect URLs, email templates (token-hash links), SMTP sender
 - [ ] End-to-end sign-up → confirm → sign-in on the deployed preview (the build sandbox cannot reach Supabase Auth over HTTPS)
 
