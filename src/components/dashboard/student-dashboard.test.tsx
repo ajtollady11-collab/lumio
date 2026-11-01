@@ -110,7 +110,8 @@ describe("StudentDashboard — quick actions", () => {
       "/app/revision",
       "/app/progress",
     ]);
-    expect(within(region).getAllByText("Soon")).toHaveLength(4);
+    expect(within(region).getAllByText("Soon")).toHaveLength(3);
+    expect(within(links[1]).queryByText("Soon")).not.toBeInTheDocument(); // tutor is built
     expect(within(links[2]).queryByText("Soon")).not.toBeInTheDocument();
   });
 });

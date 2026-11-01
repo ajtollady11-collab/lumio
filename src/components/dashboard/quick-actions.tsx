@@ -8,7 +8,7 @@ type QuickAction = { label: string; detail: string; href: string; icon: LucideIc
 
 const ACTIONS: QuickAction[] = [
   { label: "Start learning", detail: "Live lesson", href: "/app/lessons", icon: Presentation },
-  { label: "Ask my tutor", detail: "Chat or voice", href: "/app/tutor", icon: Sparkles },
+  { label: "Ask my tutor", detail: "Any subject, any time", href: "/app/tutor", icon: Sparkles },
   { label: "Revise a subject", detail: "Your subjects", href: "/app/subjects", icon: GraduationCap },
   { label: "Take a quiz", detail: "Check understanding", href: "/app/revision", icon: BookOpenCheck },
   { label: "View my progress", detail: "Mastery & streaks", href: "/app/progress", icon: BarChart3 },

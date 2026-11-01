@@ -1,7 +1,7 @@
 # Lumio — Development Roadmap
 
 > Record of completed work and what's next. Rule: a phase starts only after the previous one is verified.
-> Last updated: 2026-11-01 (student dashboard).
+> Last updated: 2026-11-01 (AI tutor).
 
 ## Status at a glance
 
@@ -10,7 +10,7 @@
 | 1 | Foundation | **Built, verified and deployed** — Supabase auth URL settings and a live sign-up test outstanding |
 | 2 | User experience: onboarding, profiles, linking, dashboards | **Complete — built, tested and verified live** (2026-11-01) |
 | 2b | Intelligent student dashboard (owner's "Prompt 3") | **Built and tested** (2026-11-01) — live check by the owner outstanding |
-| 3 | AI tutor: customisation, routing, context, memory, chat | Not started |
+| 3 | AI tutor: customisation, routing, context, memory, chat (owner's "Phase 4" prompt) | **Built and tested** (2026-11-01) — needs two keys added in Vercel, then a live check |
 | 4 | Live learning: lessons, slides, diagrams, voice | Not started |
 | 5 | Academic systems: curriculum content, revision, flashcards, quizzes, exam practice, marking | Not started |
 | 6 | Progress & family: analytics, gamification, reports, exam tracking, notifications | Foundations done in 2b (activity ledger, streaks, goals); rest not started |
@@ -57,7 +57,7 @@
 - [ ] Not yet verified live: password reset, sign-out, parent sign-up and role redirect, Google (disabled)
 - [ ] Email templates switched to token-hash links (cross-device confirmation) and a custom SMTP sender (Supabase's default sender is rate-limited and not for production)
 - [x] ~~Leaked-password protection (Supabase Pro)~~ — replaced by a free equivalent in Phase 2 (common-password list + Have I Been Pwned range check). Owner decision: stay on Supabase Free
-- [ ] `SUPABASE_SECRET_KEY` added to Vercel — **not needed yet**: all Phase 2 work runs as the signed-in user. Needed from Phase 3 (usage ledger)
+- [ ] `SUPABASE_SECRET_KEY` added to Vercel — **now required** by the AI tutor (Phase 3)
 
 ## Phase 2 — User experience
 
@@ -132,6 +132,44 @@
 - Topic completion/attention needs curriculum topics (Phase 5) and lesson tracking.
 - Timezone defaults to Europe/London; there is no timezone picker yet.
 - Parents can't see activity yet (scoped reporting is Phase 6).
+
+## Phase 3 — Personal AI tutor (owner's "Phase 4" prompt)
+
+### Done (2026-11-01)
+- [x] Tutor pages: `/app/tutor`, `/app/tutor/c/[id]`, `/app/tutor/settings`; linked from navigation, dashboard quick action and each subject page
+- [x] Customisation: name, personality (6), teaching style (6), pace (3), depth (3) — saved to Supabase, loaded every turn, and **each option changes the instructions the AI receives** (unit-tested); live preview; defaults from the student's onboarding learning preferences
+- [x] Real AI integration: Anthropic provider behind a provider interface; streaming replies; prompt caching; server-only keys
+- [x] Clear setup message naming missing variables when keys aren't set; the rest of Lumio unaffected
+- [x] Teaching behaviour, honesty, safeguarding and curriculum-honesty instructions (see AI architecture §0)
+- [x] Student context from saved data only: name, age band, year, qualification + board per subject, grades, confidence, exam dates, assessment averages, learning preferences, goals, recorded memory
+- [x] Curriculum context service: verified-specification lookup (none loaded yet) vs clearly-labelled general knowledge
+- [x] Conversations: new, continue, history list, reopen, rename, delete, auto-titles, "load earlier" pagination, stop generating
+- [x] Memory foundation: structured `student_memory`, server-written, student can view/delete; records topics studied
+- [x] Usage tracking: provider, model, tokens (incl. cache), estimated cost, request id per reply; monthly allowances; rate limits; escalation budget
+- [x] Security: session-only identity, RLS on all new tables, parents excluded, input limits, safe rendering, consent gate for under-13s
+- [x] Each first exchange appears as a "Tutor session" in the dashboard's recent activity (doesn't count towards streaks)
+
+### Verification (2026-11-01)
+| Check | Result |
+|---|---|
+| `tsc` / ESLint | 0 errors / 0 problems |
+| Vitest | 21 files, **179 tests** — prompt builder (settings change instructions; only stored facts; verified vs general curriculum; struggle signal), router, cost maths, quota, validation, stream decoding, orchestrator end-to-end with fakes (new/continue/someone else's conversation/wrong subject/consent/allowance/rate limit/provider failure/stop/database down/defaults), API route security, tutor UI (greeting, streaming send, failure restores text, dropped connection, not-configured, consent, reopen with Markdown + maths, rename, delete, subject preselect), settings form + memory panel; earlier dashboard/onboarding tests still pass |
+| SQL `tutor.sql` + context tests on live DB | all passed (A/B/parent/anon isolation, no forged replies or memory, cascade delete, quota) |
+| Supabase advisors | no new security findings |
+| `next build` | succeeds (33 pages) |
+| Visual check (1440 / 390 px) | chat with tables + maths, welcome, setup notice, settings; fixed phone composer overlap and setup-notice placement; no console errors or horizontal scroll |
+
+### Not yet verified — needs the owner
+- [ ] Add `ANTHROPIC_API_KEY` and `SUPABASE_SECRET_KEY` in Vercel and redeploy; then a **live conversation** (real AI replies have only been tested against a simulated provider — no key was available)
+- [ ] Set a monthly spend limit in the Anthropic console
+- [ ] Confirm model prices on Anthropic's pricing page (recorded from a third-party table)
+
+### Known limitations / next
+- Memory records topics the student chooses; automatic extraction of strengths, weaknesses and misconceptions from conversations is not built (planned as a cheap batched job).
+- No exam-board specification content is loaded, so the tutor teaches general knowledge for the level and says when boards may differ (Phase 5 loads licensed specifications).
+- No voice, diagrams or images in the tutor yet (Phase 4).
+- Tutor usage isn't yet shown on the parent dashboard or admin dashboard (Phases 6–7).
+- Safeguarding relies on the model's instructions; a human escalation process and designated safeguarding lead are required before public launch.
 
 ## Phases 3–8
 See `LUMIO_AI_ARCHITECTURE.md` (3–6), `LUMIO_COST_CONTROL.md` (7) and `LUMIO_SECURITY_REQUIREMENTS.md` (release gates, 8). Each phase adds its tables to `LUMIO_DATABASE_SCHEMA.md` §5 with RLS tests before UI work begins.

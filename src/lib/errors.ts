@@ -42,6 +42,11 @@ const LUMIO_MESSAGES: Record<string, { error: ActionError; message: string }> = 
   invalid_grade: { error: "invalid", message: "One of the grades isn't on that qualification's scale." },
   too_many_subjects: { error: "invalid", message: "You can choose up to 15 subjects." },
   too_many_exams: { error: "invalid", message: "You've reached the limit for saved exams. Remove an old one first." },
+  too_many_conversations: {
+    error: "invalid",
+    message: "You have 300 saved conversations. Delete some old ones to start a new one.",
+  },
+  conversation_full: { error: "invalid", message: "This conversation is full. Start a new one to carry on." },
   too_many_invitations: {
     error: "rate_limited",
     message: "You have 5 unused codes. Cancel one or wait for it to expire before creating another.",

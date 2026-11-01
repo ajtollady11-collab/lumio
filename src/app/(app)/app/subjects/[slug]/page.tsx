@@ -159,14 +159,13 @@ async function Subject({ params }: { params: Promise<{ slug: string }> }) {
                 <span className="text-xs text-violet-400">Soon</span>
               </Link>
               <Link
-                href="/app/tutor"
-                className="flex items-center justify-between gap-3 rounded-panel border border-line p-4 text-sm hover:border-line-strong"
+                href={`/app/tutor?subject=${subject.slug}`}
+                className="flex items-center justify-between gap-3 rounded-panel border border-blue-400/25 bg-blue-500/[0.07] p-4 text-sm hover:border-blue-400/50"
               >
                 <span className="flex items-center gap-2.5">
-                  <Sparkles className="size-4 text-fg-subtle" aria-hidden />
-                  Ask your tutor
+                  <Sparkles className="size-4 text-blue-400" aria-hidden />
+                  Ask your tutor about {subject.name}
                 </span>
-                <span className="text-xs text-violet-400">Soon</span>
               </Link>
             </div>
           </Panel>

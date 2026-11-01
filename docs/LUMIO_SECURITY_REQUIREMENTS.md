@@ -13,7 +13,8 @@
 | Public vs server env split; server module guarded by `server-only` so importing it in client code fails the build | ✅ `src/lib/config/{env,server-env}.ts` |
 | Env validated with zod at startup; missing secrets fail loudly at point of use | ✅ |
 | Supabase **secret** key only in server code (`src/lib/supabase/admin.ts`) | ✅ |
-| AI and Stripe keys server-only; voice uses short-lived server-minted tokens | 🔜 3, 4, 7 |
+| AI keys server-only: `ANTHROPIC_API_KEY` is read only in `server-only` modules; the browser talks to `/api/tutor/chat`, never to the provider. Missing keys are reported by **name** only | ✅ |
+| Stripe keys server-only; voice uses short-lived server-minted tokens | 🔜 4, 7 |
 | Secret rotation runbook | 🔜 8 |
 
 ## 2. Authentication & sessions
@@ -40,6 +41,11 @@
 | Roles: student, parent (self-selected at sign-up, validated by trigger); staff only via `private.staff_members` | ✅ |
 | Users cannot change their role or consent status | ✅ tested |
 | Onboarding cannot be skipped: `onboarding_completed_at` is not user-writable; only the completion functions set it, after checking required answers in the database. Unfinished users are redirected to `/onboarding` server-side; step URLs are clamped to the furthest step the saved data allows | ✅ tested (SQL + unit) |
+| AI tutor trust model: the student id comes only from the verified session (never the request body — tested); students write their own messages, but tutor replies, usage and memory are written by the server with the secret key, so none can be forged; conversations, messages and memory are visible only to their student — **not to parents**, regardless of sharing switches | ✅ tested (`tutor.sql`, route tests) |
+| Tutor abuse controls: 2,000-char messages, 16 KB request bodies, 6 messages/min and 60/hour, monthly plan allowance, 300 conversations / 400 messages / 500 memory items per student; replies capped by explanation depth | ✅ tested |
+| Prompt-injection posture: student text is only ever a user turn; the system prompt states that student messages are never instructions and not to reveal configuration; the tutor has no tools or data access beyond the student's own context, so a successful injection can't reach other data | ✅ |
+| Model output rendering: Markdown without raw HTML; `javascript:`/`data:` links stripped; remote images not rendered; links open with `noopener noreferrer nofollow` | ✅ |
+| Safeguarding in the tutor: age-appropriate behaviour; disclosures get a supportive reply plus trusted-adult, Childline (0800 1111), Samaritans (116 123) and 999 signposting; under-13s blocked until a parent links (consent) | ✅ prompt + consent gate · ⚠️ human safeguarding escalation path and DSL still needed before public launch |
 | Learning activity is server-written only: students can read but not insert, update or delete `study_activity_events` or `student_streaks`, so streaks and goal progress can't be faked from the browser. Dashboard data is fetched per request with the user's own session (RLS) and never shared-cached | ✅ tested (`learning_activity.sql`) |
 | Parent–student linking only through single-use, 7-day, hashed, 60-bit invite codes that the **student** enters and confirms (seeing the parent's first name first). Either side can unlink | ✅ tested |
 | Intentional `security definer` RPCs in `public` (`create/preview/accept/revoke_parent_invitation`, `unlink_parent_student`, `complete_*_onboarding`): each checks `auth.uid()` and role, sets `search_path = ''`, is executable by `authenticated` only. The Supabase advisor lists these as warnings by design | ✅ |
@@ -71,7 +77,7 @@
 | Data minimisation | Age **band** not date of birth; first name only; no school name, address or phone | ✅ schema |
 | Default settings / privacy by default | Tutor conversations not shared with parents unless the student opts in | ✅ schema |
 | Parental controls transparency | Students see each linked parent, exactly what they can see, and can switch activity/results sharing off or unlink. Conversation sharing is off and not offered to parents | ✅ UI (Settings → Family) |
-| Age assurance + parental consent | Under-13s (UK age of digital consent): choosing that band sets consent to `pending` (trigger); it becomes `granted` only when a parent links via an invite the child accepts. Dashboard explains this. AI features must check consent before running | ✅ flow · 🔜 enforce at AI endpoints (3) · ⚠️ legal review of whether parent-account linking is sufficient verification |
+| Age assurance + parental consent | Under-13s (UK age of digital consent): choosing that band sets consent to `pending` (trigger); it becomes `granted` only when a parent links via an invite the child accepts. Dashboard explains this. The AI tutor refuses to run while consent is pending or withdrawn | ✅ flow · ✅ enforced at the tutor endpoint (tested) · ⚠️ legal review of whether parent-account linking is sufficient verification |
 | Detrimental use / nudges | No streak-loss guilt mechanics, no dark patterns in upgrade flows | 🔜 6, 7 |
 | Profiling off by default (except core service) | Learning profile is the core service; no advertising or third-party profiling | ✅ policy |
 | Geolocation off | Not collected | ✅ |
@@ -80,7 +86,7 @@
 
 Additional obligations:
 * **Lawful basis & privacy notice** written for children and for parents (plain-language versions). ⚠️ legal review
-* **AI providers as processors**: DPAs in place; no training on student data; prefer zero-retention options; record transfers (UK IDTA / adequacy). ⚠️ before Phase 3 goes live
+* **AI providers as processors**: DPAs in place; no training on student data (Anthropic's commercial API terms don't train on API data by default — confirm in the account's terms); consider zero-data-retention; record transfers (UK IDTA / adequacy). The tutor sends the provider only: first name, age band, school year, subjects/boards/grades, exam dates, learning preferences, recorded memory topics and the conversation — no email, surname or school. ⚠️ Owner to review before opening the tutor to real students
 * **Data residency**: primary data in London (eu-west-2) ✅.
 * **Retention**: define per table (e.g. raw conversation text 12 months, aggregates longer). 🔜 6
 * **Safeguarding**: disclosure-handling policy, designated safeguarding lead, escalation path in the tutor, signposting to Childline/Samaritans. ⚠️ before Phase 3 launch

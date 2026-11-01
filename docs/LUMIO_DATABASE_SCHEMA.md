@@ -2,7 +2,7 @@
 
 > Source of truth: `supabase/migrations/*.sql`. This document explains intent; when they disagree, the migrations win and this file must be fixed.
 > Project: Supabase `lumio` (ref `axyavuiaxcgzzyjxepzp`), Postgres 17, region eu-west-2 (London).
-> Last updated: 2026-11-01 (student dashboard).
+> Last updated: 2026-11-01 (AI tutor).
 
 ## 1. Conventions
 
@@ -25,6 +25,9 @@
 | 0005 | `20261101000500_policy_hardening.sql` | helpers moved to `private`, consolidated policies, FK indexes |
 | 0006 | `20261101000600_onboarding.sql` | onboarding columns on `student_profiles`, `qualification_exam_boards`, rebuilt `student_subjects`, `examination_dates`, `parent_invitations`; consent and display-name triggers |
 | 0007 | `20261101000700_onboarding_functions.sql` | invitation create/preview/accept/revoke, unlink, onboarding completion functions; invite rate limiting |
+| 0009 | `20261101000900_tutor.sql` | `tutors`, `tutor_conversations`, `tutor_messages`, `student_memory`, `service_remember()`, `get_tutor_quota()` |
+| 0009a | `20261101000901_tutor_conversation_client_id.sql` | students may choose a new conversation's UUID |
+| 0010 | `20261101001000_tutor_context.sql` | `get_tutor_context()` — one read per tutor turn |
 | 0008 | `20261101000800_learning_activity.sql` | `study_activity_events` ledger, `student_streaks`, `student_learning_goals` (replaces `student_profiles.weekly_study_minutes_goal`), timezone validation, `get_dashboard_activity()` |
 
 ## 3. Entity map (current)
@@ -78,6 +81,16 @@ private.staff_members (admin/support) · audit_logs (append-only)
 **Parents** have no direct read access to these tables. Phase 6 adds scoped reporting functions that respect `share_activity` / `share_results` separately.
 
 `student_profiles.timezone` is now validated against `pg_timezone_names`.
+
+### Personal tutor (0009–0010)
+| Table | Purpose | Who writes |
+|---|---|---|
+| `tutors` | One per student: `name` (1–24 chars, letters/numbers/space/'.-), `personality`, `teaching_style`, `pace`, `depth` (enums). Absent until the student saves; defaults come from their learning preferences | Student, own row |
+| `tutor_conversations` | `title` (≤80), optional `subject_id` and `topic` (≤80), `message_count`, `last_message_at` (both trigger-maintained). Max 300 per student | Student: create (may choose UUID), rename, change subject/topic, delete (messages cascade) |
+| `tutor_messages` | `role` user/assistant, `content` (user ≤2,000 chars, any ≤12,000), `status` complete/interrupted, `model`. Max 400 per conversation; a trigger checks the conversation belongs to the message's student | Students insert **only role = user** in their own conversations; assistant replies **server only**. Immutable |
+| `student_memory` | Structured facts: `kind`, `subject_id`, `topic`, `detail` (≤300), `source`, `occurrences`, first/last seen. Unique per student/kind/subject/topic (case-insensitive); max 500 | **Server only** via `service_remember()` (service role). Students read and delete their own |
+
+`get_tutor_quota()` / `get_tutor_context()` are `security invoker` (RLS applies). **Parents have no access to any of these tables**, even with every sharing switch on.
 
 ### Family
 `parent_student_links` — `pending → active → revoked`. Created only by `accept_parent_invitation()`.
@@ -137,7 +150,9 @@ The spec's `users` table is Supabase `auth.users`; `ai_usage` and `ai_cost_event
 
 `supabase/tests/learning_activity.sql` (0008) asserts: invalid timezones refused; idempotent recording; future events refused; streak current/best computed correctly and recomputed after deletion; non-qualifying events (abandoned quiz, 3-minute flashcards, tutor chat, notes) don't count; study days follow the student's timezone and are re-derived when it changes; dashboard totals/averages/calendar are correct; students cannot write events or streaks or call the private recorder; goal ranges and "at least one" enforced; a second and third student see only their own data and can't alter another's goals; parents have no direct access and can't call the student dashboard; anonymous users are refused.
 
-Last run of all three suites: **2026-11-01 — all passed**, with no test data left behind (with a negative control confirming failed assertions abort the run). Rerun after every migration that touches policies.
+`supabase/tests/tutor.sql` (0009–0010) asserts: students can't forge tutor replies, edit messages, reset counters or write memory; over-long messages and invalid tutor names are refused; messages can't be attached to another student's conversation (even by the server); a second student can't read, rename, delete or write into the first student's conversations, tutor or memory, and `get_tutor_context` with someone else's conversation id returns nothing; a parent with every sharing switch on sees nothing; anonymous users are refused; deleting a conversation deletes its messages; students can delete memory; quota reflects plan data and recent messages.
+
+Last run of all suites: **2026-11-01 — all passed**, with no test data left behind (with a negative control confirming failed assertions abort the run). Rerun after every migration that touches policies.
 
 ## 7. Regenerating types
 

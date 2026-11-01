@@ -1,7 +1,7 @@
 # Lumio — Architecture
 
 > Central technical reference. Keep current: update this file in the same change as any structural decision.
-> Last updated: 2026-11-01 (student dashboard).
+> Last updated: 2026-11-01 (AI tutor).
 
 ## 1. System overview
 
@@ -75,6 +75,7 @@ lumio/
 │  │  ├─ onboarding/          Student 8-step flow, steps (reused by Settings), exams manager, parent set-up
 │  │  ├─ family/ settings/    Invite/link/unlink UI; settings forms
 │  │  ├─ dashboard/           Student dashboard sections, SubjectCard, Panel/EmptyState, skeleton
+│  │  ├─ tutor/               Tutor workspace (chat, history, composer), settings + memory, Markdown/KaTeX renderer
 │  │  ├─ auth/ account/ marketing/ feedback/
 │  ├─ lib/                    Infrastructure, framework-agnostic where possible
 │  │  ├─ config/              env (public, server-only), plans
@@ -84,9 +85,11 @@ lumio/
 │  │  ├─ errors.ts            ActionResult type; maps database errors to friendly messages
 │  │  ├─ dashboard/           Pure dashboard model (subjects, exams, goals, greeting) + zod shape of the activity RPC
 │  │  ├─ recommendations/     Rule-based recommendation engine (pure, unit-tested)
+│  │  ├─ ai/                  Model catalogue + prices, model router (pure)
+│  │  ├─ tutor/               Tutor options, prompt builder, context parsing, quota, schemas, stream protocol (pure)
 │  │  ├─ subjects/            Subject accent colours
 │  │  └─ utils/
-│  ├─ server/                 Domain services (server-only): curriculum/ (cached reference data), onboarding/, family/, dashboard/; later ai/, usage/, billing/
+│  ├─ server/                 Domain services (server-only): curriculum/, onboarding/, family/, dashboard/, ai/ (provider, config), tutor/ (orchestrator, store, data, actions); later usage/, billing/
 │  ├─ test/                   Test-only fixtures (never imported by app code)
 │  └─ types/database.ts       Generated from the live schema
 └─ .github/workflows/ci.yml
@@ -132,6 +135,23 @@ Profiles are created by the `on_auth_user_created` trigger. The requested role i
 * **Subject pages**: `/app/subjects` and `/app/subjects/[slug]` (exams, grades, assessment average, recent subject activity; topics state that tracking starts with lessons).
 * **Shell**: the navigation's current-page highlight reads the URL inside its own `<Suspense>` so dynamic routes can prerender the shell.
 
+## 5c. Personal AI tutor
+
+Pages: `/app/tutor` (new conversation; `?subject=slug` preselects), `/app/tutor/c/[id]` (existing), `/app/tutor/settings` (customisation + "what your tutor remembers").
+
+```
+Browser ──POST /api/tutor/chat {conversationId, isNew, content, subjectId?, topic?}──▶ route handler
+  session (getClaims) → student? onboarded? → keys configured? → body ≤16 KB, zod
+  runTutorTurn(store, provider)
+    get_tutor_context (1 RPC, as student)  → consent gate → rate limit + allowance
+    create/verify conversation (RLS) → insert student message (RLS)
+    route model → build prompt (cached foundation + persona + record + curriculum + focus)
+    provider.stream ──▶ NDJSON {start, delta…, done | error} ──▶ browser renders as it arrives
+    save reply · usage · memory · activity (secret key)
+```
+
+A new conversation's UUID is generated in the browser so the address bar can switch to `/app/tutor/c/<id>` (via `history.replaceState`) without reloading. If the provider fails before replying, the student's message is removed and handed back to the composer; if the student presses Stop, the partial reply is kept and marked "interrupted".
+
 ## 6. Route protection
 
 1. `src/proxy.ts` — refreshes the session cookie on every request; redirects signed-out users from `/app`, `/parent`, `/onboarding`, `/admin` to `/sign-in?next=…`; redirects signed-in users away from sign-in/up pages. Fail-closed: with no Supabase config, protected areas redirect to sign-in.
@@ -164,3 +184,6 @@ The previous application's Supabase project (`lumio-staging`) and repository are
 | 2026-11-01 | One activity ledger with a database-defined "qualifies" rule | Every feature is judged the same way; students can't write events, so streaks/goals can't be gamed; parents' future reports read the same source |
 | 2026-11-01 | Dashboard activity via one `security invoker` RPC | One round trip instead of ~6 queries; RLS still applies |
 | 2026-11-01 | Rule-based recommendations, no LLM | Spec: don't spend AI on basic suggestions. Deterministic, explainable, free, testable |
+| 2026-11-01 | Tutor replies/usage/memory written with the secret key | Prevents forged tutor messages, usage or "memories" — so `SUPABASE_SECRET_KEY` became required |
+| 2026-11-01 | Claude Haiku 5.5 default, Sonnet 5.5 on struggle, monthly escalation budget | Unit economics (~$1.50 per Premium student at full allowance) without giving up quality where it matters |
+| 2026-11-01 | Streaming over a route handler (NDJSON) rather than a server action | Server actions can't stream partial text; a route handler can and still uses the same session/RLS |

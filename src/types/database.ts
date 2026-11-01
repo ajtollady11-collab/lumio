@@ -551,6 +551,60 @@ export type Database = {
           },
         ]
       }
+      student_memory: {
+        Row: {
+          detail: string | null
+          first_seen_at: string
+          id: string
+          kind: Database["public"]["Enums"]["memory_kind"]
+          last_seen_at: string
+          occurrences: number
+          source: Database["public"]["Enums"]["memory_source"]
+          student_id: string
+          subject_id: string | null
+          topic: string
+        }
+        Insert: {
+          detail?: string | null
+          first_seen_at?: string
+          id?: string
+          kind: Database["public"]["Enums"]["memory_kind"]
+          last_seen_at?: string
+          occurrences?: number
+          source: Database["public"]["Enums"]["memory_source"]
+          student_id: string
+          subject_id?: string | null
+          topic: string
+        }
+        Update: {
+          detail?: string | null
+          first_seen_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["memory_kind"]
+          last_seen_at?: string
+          occurrences?: number
+          source?: Database["public"]["Enums"]["memory_source"]
+          student_id?: string
+          subject_id?: string | null
+          topic?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_memory_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "student_memory_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_profiles: {
         Row: {
           academic_goals: string | null
@@ -901,6 +955,146 @@ export type Database = {
           },
         ]
       }
+      tutor_conversations: {
+        Row: {
+          created_at: string
+          id: string
+          last_message_at: string
+          message_count: number
+          student_id: string
+          subject_id: string | null
+          title: string
+          topic: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_message_at?: string
+          message_count?: number
+          student_id: string
+          subject_id?: string | null
+          title?: string
+          topic?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_message_at?: string
+          message_count?: number
+          student_id?: string
+          subject_id?: string | null
+          title?: string
+          topic?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tutor_conversations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "tutor_conversations_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tutor_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          model: string | null
+          role: Database["public"]["Enums"]["tutor_message_role"]
+          status: Database["public"]["Enums"]["tutor_message_status"]
+          student_id: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          model?: string | null
+          role: Database["public"]["Enums"]["tutor_message_role"]
+          status?: Database["public"]["Enums"]["tutor_message_status"]
+          student_id: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          model?: string | null
+          role?: Database["public"]["Enums"]["tutor_message_role"]
+          status?: Database["public"]["Enums"]["tutor_message_status"]
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tutor_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "tutor_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_messages_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["profile_id"]
+          },
+        ]
+      }
+      tutors: {
+        Row: {
+          created_at: string
+          depth: Database["public"]["Enums"]["tutor_depth"]
+          name: string
+          pace: Database["public"]["Enums"]["tutor_pace"]
+          personality: Database["public"]["Enums"]["tutor_personality"]
+          student_id: string
+          teaching_style: Database["public"]["Enums"]["tutor_teaching_style"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          depth?: Database["public"]["Enums"]["tutor_depth"]
+          name?: string
+          pace?: Database["public"]["Enums"]["tutor_pace"]
+          personality?: Database["public"]["Enums"]["tutor_personality"]
+          student_id: string
+          teaching_style?: Database["public"]["Enums"]["tutor_teaching_style"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          depth?: Database["public"]["Enums"]["tutor_depth"]
+          name?: string
+          pace?: Database["public"]["Enums"]["tutor_pace"]
+          personality?: Database["public"]["Enums"]["tutor_personality"]
+          student_id?: string
+          teaching_style?: Database["public"]["Enums"]["tutor_teaching_style"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tutors_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "student_profiles"
+            referencedColumns: ["profile_id"]
+          },
+        ]
+      }
       usage_events: {
         Row: {
           allowance: Database["public"]["Enums"]["allowance_key"] | null
@@ -998,6 +1192,22 @@ export type Database = {
     }
     Functions: {
       get_dashboard_activity: { Args: never; Returns: Json }
+      get_tutor_context: {
+        Args: { p_conversation_id?: string; p_history?: number }
+        Returns: Json
+      }
+      get_tutor_quota: { Args: never; Returns: Json }
+      service_remember: {
+        Args: {
+          p_detail: string | null
+          p_kind: Database["public"]["Enums"]["memory_kind"]
+          p_source: Database["public"]["Enums"]["memory_source"]
+          p_student: string
+          p_subject: string | null
+          p_topic: string
+        }
+        Returns: undefined
+      }
       accept_parent_invitation: {
         Args: { p_code: string }
         Returns: {
@@ -1059,6 +1269,14 @@ export type Database = {
         | "exam_practice"
         | "revision"
         | "notes"
+      memory_kind: "topic_studied" | "strength" | "weakness" | "misconception" | "note"
+      memory_source: "tutor_conversation" | "assessment" | "lesson" | "student"
+      tutor_depth: "simple" | "standard" | "detailed"
+      tutor_message_role: "user" | "assistant"
+      tutor_message_status: "complete" | "interrupted"
+      tutor_pace: "slow" | "balanced" | "fast"
+      tutor_personality: "friendly" | "patient" | "motivational" | "professional" | "strict_supportive" | "encouraging"
+      tutor_teaching_style: "visual" | "conversational" | "detailed" | "simplified" | "question_led" | "example_based"
       subject_confidence: "difficult" | "neutral" | "confident"
       subscription_status:
         | "trialing"
@@ -1219,6 +1437,14 @@ export const Constants = {
       report_scope: ["activity", "results", "conversations"],
       staff_role: ["admin", "support"],
       study_activity_type: ["lesson", "tutor_session", "quiz", "flashcards", "exam_practice", "revision", "notes"],
+      memory_kind: ["topic_studied", "strength", "weakness", "misconception", "note"],
+      memory_source: ["tutor_conversation", "assessment", "lesson", "student"],
+      tutor_depth: ["simple", "standard", "detailed"],
+      tutor_message_role: ["user", "assistant"],
+      tutor_message_status: ["complete", "interrupted"],
+      tutor_pace: ["slow", "balanced", "fast"],
+      tutor_personality: ["friendly", "patient", "motivational", "professional", "strict_supportive", "encouraging"],
+      tutor_teaching_style: ["visual", "conversational", "detailed", "simplified", "question_led", "example_based"],
       subject_confidence: ["difficult", "neutral", "confident"],
       subscription_status: [
         "trialing",

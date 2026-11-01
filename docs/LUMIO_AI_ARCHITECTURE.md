@@ -1,7 +1,27 @@
 # Lumio — AI Architecture
 
 > Design for Phases 3–6. Nothing in this document is implemented yet unless marked ✅.
-> Last updated: 2026-11-01.
+> Last updated: 2026-11-01 (personal AI tutor — see §0).
+
+## 0. Implemented: personal AI tutor ✅ (2026-11-01)
+
+| Part | Where | What it does |
+|---|---|---|
+| Provider abstraction | `src/server/ai/provider.ts` | `ChatProvider` interface; Anthropic implementation (streaming, prompt-cache blocks, usage incl. cache reads, error mapping: auth / rate limit / overloaded / bad request / aborted / network). Adding another provider touches only this file |
+| Configuration check | `src/server/ai/config.ts` | `tutorReadiness()` → ready, or the **names** of missing variables (`ANTHROPIC_API_KEY`, `SUPABASE_SECRET_KEY`). The UI shows a setup message; nothing is faked |
+| Model catalogue + cost | `src/lib/ai/models.ts` | Model ids, tiers, prices, `estimateCostMicros` |
+| Model routing (engine 14) | `src/lib/ai/router.ts` | Haiku 5.5 default; Sonnet 5.5 when the student is stuck or writes a long question, within a monthly escalation budget |
+| Tutor personality (engine 1) | `src/lib/tutor/options.ts`, `prompt.ts` | One table gives each option a label, description **and** the instruction the model receives — settings can't be cosmetic. Unit tests prove every option changes the prompt |
+| Teaching behaviour | `TEACHING_FOUNDATION` in `prompt.ts` | Explain in steps; match GCSE vs A-level; on struggle change approach (never repeat); occasional checks; honest correction (never praise wrong answers); guide homework rather than complete it; no coursework; UK English; Markdown + LaTeX |
+| Honesty | same | Only facts in `<student_record>` may be treated as known; curriculum is labelled verified vs general knowledge; no past papers / official marks / predicted grades |
+| Safeguarding | same | Age-appropriate; disclosures → supportive response + trusted adult + Childline 0800 1111 / Samaritans 116 123 / 999; no personal details requested; states it is an AI if asked; refuses to reveal or override its instructions |
+| Student context (engine 2) | `get_tutor_context()` RPC + `src/lib/tutor/context.ts` | One read: profile, subjects (qualification, board, grades, confidence, next exam, assessment average, last studied), tutor settings, memory, quota, conversation + last 12 messages |
+| Curriculum context (engine 3, first step) | `curriculumSection` + `store.specification()` | Uses the student's own qualification/board for the chosen subject. If a **published** specification exists in Lumio it's listed as verified; otherwise the tutor is told plainly it has no verified spec content and to flag where boards differ. (No specifications are loaded yet — Phase 5.) |
+| Student memory (engine 12, foundation) | `student_memory` table, `service_remember()` | Structured facts only (`topic_studied`, `strength`, `weakness`, `misconception`, `note`), each with source and count. Currently written: topics the student chose in a conversation. Students can see and delete every item; parents can't see them. No autonomous extraction yet |
+| Orchestrator | `src/server/tutor/turn.ts` | consent → quota → conversation → save student message → route → prompt → stream → save reply, usage, memory, activity. Dependency-injected; unit-tested end to end with fakes |
+| Transport | `POST /api/tutor/chat` | NDJSON stream (`start`, `delta`, `done`, `error`). Student id from the session only |
+
+Struggle handling today: a deterministic detector (`soundsStuck`) flags phrases like "I still don't get it"; the prompt then tells the tutor to switch approach, and the router may escalate to the capable model. The fuller per-objective ladder in §4 arrives with the lesson engine.
 
 ## 1. Principles
 
@@ -31,7 +51,7 @@
 | 13 | Parent reporting | Weekly report from aggregated metrics only (never raw private chats) | mid, batched |
 | 14 | Model routing | Picks provider/model per task, plan, budget and escalation signals | — |
 
-Code home: `src/server/ai/<engine>/` with a shared `src/server/ai/router.ts` and `src/server/ai/providers/{anthropic,openai,voice}.ts`.
+Code home: pure logic in `src/lib/ai/` and `src/lib/tutor/` (testable, no secrets); server-only provider and data access in `src/server/ai/` and `src/server/tutor/`.
 
 ## 3. Request pipeline (text)
 

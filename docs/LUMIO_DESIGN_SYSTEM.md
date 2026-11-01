@@ -105,6 +105,18 @@ Tutor orb states — each has exactly one motion: **idle** breathes, **listening
 
 Dashboard layout: 12-column grid on desktop (greeting 8 + streak 4; next-up 7 + exams 5, swapped when an exam is within 14 days; subjects 12; overview 7 + goals 5; activity 12). Phones use a single column ordered by importance: greeting → what to do next → quick actions → exams → subjects → goals → streak → overview → activity.
 
+### Added for the AI tutor
+| Component | Notes |
+|---|---|
+| Tutor workspace | Desktop: 17 rem history column + conversation. Phones: history and new-conversation behind header buttons (history opens as a bottom sheet) |
+| Tutor header | `TutorOrb` reflects state — idle / thinking (waiting) / speaking (streaming) — with name and "Personality · Style" |
+| Messages | Student: right-aligned blue-tinted bubble. Tutor: unboxed prose beside a small orb avatar, so long explanations read like a document, not a chat clone. Three pulsing dots while thinking. "Reply stopped" note for interrupted replies |
+| `TutorMarkdown` | Paragraph rhythm, blue list markers, cyan inline code, bordered tables, violet blockquotes, KaTeX maths; no raw HTML or images |
+| Composer | Floating raised surface pinned above the phone tab bar (with a fade so text never shows through), subject select + optional topic, auto-growing textarea (Enter sends, Shift+Enter new line), round Send / Stop, counter near the limit, "N messages left" when ≤ 20 |
+| Welcome | Large orb, "Hi Alfie — I’m Sage.", a sentence stating what the tutor knows (from the profile), four suggested questions built from real subjects/exams |
+| Setup / consent notices | Shown under the header in place of chatting; list missing variable names in cyan code chips |
+| Tutor settings | Live plain-English preview of how the tutor will teach (from the same option table the AI receives); ChoiceCards for personality and style, chips for pace and depth; memory list with per-item and "Forget everything" |
+
 ## 7. Responsive behaviour
 
 Mobile is designed separately, not shrunk: the phone gets a thumb-reachable tab bar (4 destinations + More), a bottom sheet with descriptions, single-column content, safe-area padding, 44px+ touch targets, and `100dvh` layouts. Tablets get an icon rail to keep content width.
