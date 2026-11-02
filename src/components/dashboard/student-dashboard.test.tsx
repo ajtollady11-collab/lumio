@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { REF, activeActivity, emptyActivity, profile } from "@/test/dashboard-fixtures";
+import { REF, activeActivity, emptyActivity, learningProfile, profile } from "@/test/dashboard-fixtures";
 
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh, replace: vi.fn(), push: vi.fn() }) }));
@@ -110,9 +110,10 @@ describe("StudentDashboard — quick actions", () => {
       "/app/revision",
       "/app/progress",
     ]);
-    expect(within(region).getAllByText("Soon")).toHaveLength(3);
+    expect(within(region).getAllByText("Soon")).toHaveLength(2);
     expect(within(links[1]).queryByText("Soon")).not.toBeInTheDocument(); // tutor is built
     expect(within(links[2]).queryByText("Soon")).not.toBeInTheDocument();
+    expect(within(links[4]).queryByText("Soon")).not.toBeInTheDocument(); // learning profile is built
   });
 });
 
@@ -244,5 +245,37 @@ describe("Weekly goals editor", () => {
     expect(within(dialog).getByLabelText(/Study time/)).toHaveValue(240);
     await user.click(within(dialog).getByRole("button", { name: "Remove goals" }));
     expect(actions.clearWeeklyGoals).toHaveBeenCalled();
+  });
+});
+
+describe("StudentDashboard — learning profile", () => {
+  it("shows real topic counts on subject cards and a profile summary", () => {
+    renderDashboard({ learning: learningProfile() });
+    const subjects = section("Your subjects");
+    const bio = within(subjects)
+      .getAllByRole("link")
+      .find((a) => a.getAttribute("href") === "/app/subjects/biology")!;
+    expect(within(bio).getByText("3 tracked")).toBeInTheDocument();
+    expect(within(bio).getByText("1 strong · 1 to improve")).toBeInTheDocument();
+    const econ = within(subjects)
+      .getAllByRole("link")
+      .find((a) => a.getAttribute("href") === "/app/subjects/economics")!;
+    expect(within(econ).getByText("None yet")).toBeInTheDocument();
+    const snap = section("My Learning Profile");
+    expect(within(snap).getAllByText("Osmosis")).toHaveLength(2); // once to improve, once improved
+    expect(within(snap).getAllByText("Cells", { selector: "a" }).length).toBeGreaterThan(0); // strength + improved
+  });
+
+  it("puts a weak topic into 'What to do next'", () => {
+    renderDashboard({ learning: learningProfile() });
+    const hrefs = within(section("What to do next"))
+      .getAllByRole("link")
+      .map((a) => a.getAttribute("href"));
+    expect(hrefs).toContain("/app/tutor?subject=biology&topic=Osmosis");
+  });
+
+  it("explains the empty profile without numbers", () => {
+    renderDashboard({ learning: { mastery: [], changes: [], insights: [], questionsAnswered: 0 } });
+    expect(within(section("My Learning Profile")).getByText(/Nothing is recorded until/)).toBeInTheDocument();
   });
 });

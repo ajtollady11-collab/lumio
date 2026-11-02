@@ -3,13 +3,21 @@ import Link from "next/link";
 import type { Recommendation } from "@/lib/recommendations/engine";
 import { Panel } from "./panel";
 
-export function Recommendations({ items }: { items: Recommendation[] }) {
+export function Recommendations({
+  items,
+  id = "next-up",
+  title = "What to do next",
+  emptyText = "You’re all caught up. Suggestions appear here from your exam dates, goals and results.",
+}: {
+  items: Recommendation[];
+  id?: string;
+  title?: string;
+  emptyText?: string;
+}) {
   return (
-    <Panel id="next-up" title="What to do next" icon={Compass}>
+    <Panel id={id} title={title} icon={Compass}>
       {items.length === 0 ? (
-        <p className="text-sm leading-relaxed text-fg-muted">
-          You’re all caught up. Suggestions appear here from your exam dates, goals and results.
-        </p>
+        <p className="text-sm leading-relaxed text-fg-muted">{emptyText}</p>
       ) : (
         <ol className="space-y-2.5">
           {items.map((r, i) => (

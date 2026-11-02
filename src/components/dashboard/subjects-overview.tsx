@@ -2,9 +2,17 @@ import { GraduationCap, Plus } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import type { SubjectSummary } from "@/lib/dashboard/model";
 import { EmptyState, Panel } from "./panel";
-import { SubjectCard } from "./subject-card";
+import { SubjectCard, type TopicCounts } from "./subject-card";
 
-export function SubjectsOverview({ subjects, today }: { subjects: SubjectSummary[]; today: string }) {
+export function SubjectsOverview({
+  subjects,
+  today,
+  topicCounts,
+}: {
+  subjects: SubjectSummary[];
+  today: string;
+  topicCounts?: Record<string, TopicCounts>;
+}) {
   return (
     <Panel
       id="subjects"
@@ -28,7 +36,7 @@ export function SubjectsOverview({ subjects, today }: { subjects: SubjectSummary
         <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {subjects.map((s) => (
             <li key={s.subjectId}>
-              <SubjectCard subject={s} today={today} />
+              <SubjectCard subject={s} today={today} topics={topicCounts?.[s.subjectId]} />
             </li>
           ))}
         </ul>

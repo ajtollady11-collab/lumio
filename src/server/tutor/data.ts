@@ -135,30 +135,6 @@ export async function getTutorPageData(conversationId: string | null): Promise<T
     readiness: tutorReadiness(),
     consentRequired: row.profile.parentalConsent === "pending" || row.profile.parentalConsent === "withdrawn",
     remainingMessages: Math.max(0, row.quota.allowance - row.quota.usedThisMonth),
-    memoryCount: row.memory.length,
+    memoryCount: row.learning.insights.length + row.learning.topics.length,
   };
-}
-
-export async function getTutorMemory(): Promise<
-  | { id: string; kind: string; subjectName: string | null; topic: string; occurrences: number; lastSeenAt: string }[]
-  | null
-> {
-  const db = await createSupabaseServerClient();
-  const [{ data, error }, reference] = await Promise.all([
-    db
-      .from("student_memory")
-      .select("id, kind, subject_id, topic, occurrences, last_seen_at")
-      .order("last_seen_at", { ascending: false })
-      .limit(200),
-    tryGetReferenceData(),
-  ]);
-  if (error || !reference) return null;
-  return (data ?? []).map((m) => ({
-    id: m.id,
-    kind: m.kind,
-    subjectName: m.subject_id ? (reference.subjects.find((s) => s.id === m.subject_id)?.name ?? null) : null,
-    topic: m.topic,
-    occurrences: m.occurrences,
-    lastSeenAt: m.last_seen_at,
-  }));
 }

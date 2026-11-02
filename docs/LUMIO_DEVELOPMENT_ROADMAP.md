@@ -1,7 +1,7 @@
 # Lumio — Development Roadmap
 
 > Record of completed work and what's next. Rule: a phase starts only after the previous one is verified.
-> Last updated: 2026-11-01 (AI tutor).
+> Last updated: 2026-11-02 (long-term student intelligence).
 
 ## Status at a glance
 
@@ -11,6 +11,7 @@
 | 2 | User experience: onboarding, profiles, linking, dashboards | **Complete — built, tested and verified live** (2026-11-01) |
 | 2b | Intelligent student dashboard (owner's "Prompt 3") | **Built and tested** (2026-11-01) — live check by the owner outstanding |
 | 3 | AI tutor: customisation, routing, context, memory, chat (owner's "Phase 4" prompt) | **Built and tested** (2026-11-01) — needs two keys added in Vercel, then a live check |
+| 3b | Long-term student intelligence & adaptive memory (owner's "Phase 5" prompt) | **Built and tested** (2026-11-02) — live AI check waits on the same two Vercel keys |
 | 4 | Live learning: lessons, slides, diagrams, voice | Not started |
 | 5 | Academic systems: curriculum content, revision, flashcards, quizzes, exam practice, marking | Not started |
 | 6 | Progress & family: analytics, gamification, reports, exam tracking, notifications | Foundations done in 2b (activity ledger, streaks, goals); rest not started |
@@ -165,11 +166,42 @@
 - [ ] Confirm model prices on Anthropic's pricing page (recorded from a third-party table)
 
 ### Known limitations / next
-- Memory records topics the student chooses; automatic extraction of strengths, weaknesses and misconceptions from conversations is not built (planned as a cheap batched job).
+- ~~Automatic extraction of strengths, weaknesses and misconceptions~~ — done in Phase 3b (in the same AI call, not a batch job).
 - No exam-board specification content is loaded, so the tutor teaches general knowledge for the level and says when boards may differ (Phase 5 loads licensed specifications).
 - No voice, diagrams or images in the tutor yet (Phase 4).
 - Tutor usage isn't yet shown on the parent dashboard or admin dashboard (Phases 6–7).
 - Safeguarding relies on the model's instructions; a human escalation process and designated safeguarding lead are required before public launch.
+
+## Phase 3b — Long-term student intelligence (owner's "Phase 5" prompt)
+
+### Done (2026-11-02)
+- [x] Evidence-based insight extraction in the **same** tutor call (tool `record_learning_evidence`), re-validated on the server; questions alone never count; personal information dropped
+- [x] Topic mastery with six levels (Not started → Mastered), transparent weighted rule in SQL, "Not assessed yet" under 2 pieces of evidence, a single answer can't give mastery, time spent isn't an input, level history
+- [x] Insights with topic, category, evidence summary ("why"), confidence, recorded and updated dates: weaknesses, strengths, misconceptions, learning patterns
+- [x] Tutor receives only memory relevant to the current subject/topic (filtered in SQL), with rules to build on prior learning, revisit gaps differently and reuse what worked; dismissed items never sent; corrections trusted
+- [x] **My Learning Profile** (`/app/progress`): counts, recommended next steps, recent improvements, areas to improve, strengths, how you learn best (onboarding preferences + tutor style + observed patterns), topic mastery by subject with history and reset
+- [x] Memory management: view when/why, confirm, correct with a note, dismiss/restore, delete one, clear all (confirmation); parents have no access
+- [x] Recommendation engine topic rules: revisit, ready for harder questions, review due (21+ days, exam-weighted), check understanding — on the dashboard and the profile page
+- [x] Dashboard: "My Learning Profile" summary panel; subject cards show real topic counts; tutor settings links to the profile; `/app/tutor?subject=&topic=` deep links
+
+### Verification (2026-11-02)
+| Check | Result |
+|---|---|
+| `tsc` / ESLint | 0 errors / 0 problems |
+| Vitest | 25 files, **238 tests** — evidence validation (questions ignored, personal/unknown/malformed dropped), tutor orchestrator (relevant memory in the prompt, tool offered in one request, evidence recorded/ignored/interrupted), prompt learning section, profile view-model, recommendation rules, learning actions (session-scoped ids, validation, role refusal), profile page (empty state, real counts, "Not assessed yet", no percentages, patterns ≥ 2, confirm/correct/dismiss/restore/delete/reset/clear), dashboard (topic counts, snapshot, weak topic recommended) |
+| SQL `learning_intelligence.sql` and `tutor.sql` on the live DB | all passed (see schema doc §6) |
+| Supabase advisors | no new security findings |
+| `next build` | succeeds; `/app/progress` partially prerendered |
+| Visual check (1440 / 390 px) | profile (populated, empty, topic expanded) and dashboard; no console errors or horizontal scroll. Found and fixed: a function passed to a client component (crashed the page — not catchable by unit tests); duplicate topic lines in the dashboard snapshot |
+
+### Not yet verified — needs the owner
+- [ ] Same as Phase 3: add `ANTHROPIC_API_KEY` and `SUPABASE_SECRET_KEY` in Vercel. Until then no real evidence is recorded, so the live profile will be empty (by design — nothing is invented).
+
+### Limitations
+- Evidence relies on the model judging answers; not independently verified. Levels are presented as Lumio's estimate, not grades.
+- Topics are free-text names until curriculum topics are loaded; then evidence should link to topic ids.
+- Quizzes/exam practice will feed in as `assessment` evidence once built (Phase 5 content).
+- Deleting a weakness/strength note removes it, but new evidence can recreate it; **dismiss** is the way to keep it out permanently.
 
 ## Phases 3–8
 See `LUMIO_AI_ARCHITECTURE.md` (3–6), `LUMIO_COST_CONTROL.md` (7) and `LUMIO_SECURITY_REQUIREMENTS.md` (release gates, 8). Each phase adds its tables to `LUMIO_DATABASE_SCHEMA.md` §5 with RLS tests before UI work begins.

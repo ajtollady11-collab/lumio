@@ -28,6 +28,10 @@
 | 0009 | `20261101000900_tutor.sql` | `tutors`, `tutor_conversations`, `tutor_messages`, `student_memory`, `service_remember()`, `get_tutor_quota()` |
 | 0009a | `20261101000901_tutor_conversation_client_id.sql` | students may choose a new conversation's UUID |
 | 0010 | `20261101001000_tutor_context.sql` | `get_tutor_context()` — one read per tutor turn |
+| 0011a | `20261102000050_memory_kind_learning_pattern.sql` | `memory_kind` gains `learning_pattern` |
+| 0011 | `20261102000100_learning_intelligence.sql` | insight status/confidence/why on `student_memory`; `topic_evidence`, `topic_mastery`, `topic_mastery_changes`; `private.recompute_mastery`; `service_record_learning()`; `reset_learning_topic()`, `clear_learning_memory()`, `get_learning_profile()` |
+| 0011b | `20261102000150_mastery_recent_tiebreak.sql` | deterministic "last 3 answers" ordering |
+| 0012 | `20261102000200_tutor_relevant_learning.sql` | `get_tutor_context(conversation, history, subject, topic)` returns only relevant learning memory |
 | 0008 | `20261101000800_learning_activity.sql` | `study_activity_events` ledger, `student_streaks`, `student_learning_goals` (replaces `student_profiles.weekly_study_minutes_goal`), timezone validation, `get_dashboard_activity()` |
 
 ## 3. Entity map (current)
@@ -90,6 +94,16 @@ private.staff_members (admin/support) · audit_logs (append-only)
 | `tutor_messages` | `role` user/assistant, `content` (user ≤2,000 chars, any ≤12,000), `status` complete/interrupted, `model`. Max 400 per conversation; a trigger checks the conversation belongs to the message's student | Students insert **only role = user** in their own conversations; assistant replies **server only**. Immutable |
 | `student_memory` | Structured facts: `kind`, `subject_id`, `topic`, `detail` (≤300), `source`, `occurrences`, first/last seen. Unique per student/kind/subject/topic (case-insensitive); max 500 | **Server only** via `service_remember()` (service role). Students read and delete their own |
 
+### Student intelligence (0011–0012)
+| Table | Purpose | Who writes |
+|---|---|---|
+| `student_memory` (extended) | + `status` (active / confirmed / corrected / dismissed), `confidence` (low/medium/high), `evidence_summary` (≤300, the "why"), `student_note` (≤300; required when corrected) | Server via `service_record_learning`. Students may update **only** `status` and `student_note` (column grant + RLS) and delete their own rows |
+| `topic_evidence` | One row per genuine answer: subject (required), `topic_key` (normalised), `topic`, `kind`, `difficulty`, `score_percent` (assessments only), misconception, approach, confidence, next step, conversation. Capped at 3,000 per student (oldest trimmed by trigger) | **Server only**. Students read and delete own (deleting recomputes mastery) |
+| `topic_mastery` | PK (student, subject, topic_key): `level` 1–6, `score` 0–1, evidence/correct/incorrect counts, first/last seen, last evidence, level changed at | Server only (recomputed). Students read/delete own |
+| `topic_mastery_changes` | from/to level + timestamp, for "how it's changed" | Server only. Students read/delete own |
+
+Writes per tutor turn: at most one evidence row + one mastery upsert + 0–3 small memory upserts, and only when the answer was genuine evidence — never a row per message. All four tables: **no parent policy at all**; `get_learning_profile()` raises `wrong_role` for non-students.
+
 `get_tutor_quota()` / `get_tutor_context()` are `security invoker` (RLS applies). **Parents have no access to any of these tables**, even with every sharing switch on.
 
 ### Family
@@ -128,7 +142,7 @@ Reference vocabulary is seeded (4 qualifications, 4 boards, 13 subjects). **No s
 | 3 | `tutors`, `tutor_memory` (structured facts: strengths, misconceptions, preferences), `conversations`, `messages` |
 | 4 | `lessons`, `lesson_plans`, `lesson_activities`, `lesson_resources` (slides/diagram specs) |
 | 5 | `flashcard_decks`, `flashcards` + review state (SM-2/FSRS), `quizzes`, `quiz_questions`, `quiz_attempts`, `assessments`, `assessment_results`, `notes`, `revision_plans`, `revision_tasks`, curriculum embeddings (pgvector) |
-| 6 | `topic_mastery`, `student_xp`, `achievements`, `weekly_reports`, `notifications`, parent reporting functions. (`study_activity_events`, streaks and goals were brought forward to 0008; a separate `study_sessions` table proved unnecessary — the ledger covers it) |
+| 6 | ~~`topic_mastery`~~ (✅ 0011), `student_xp`, `achievements`, `weekly_reports`, `notifications`, parent reporting functions. (`study_activity_events`, streaks and goals were brought forward to 0008; a separate `study_sessions` table proved unnecessary — the ledger covers it) |
 | 7 | `subscription_members` (family seats), Stripe event idempotency table, `ai_cost_rollups` |
 
 The spec's `users` table is Supabase `auth.users`; `ai_usage` and `ai_cost_events` are unified as `usage_events` (one ledger avoids double counting).
@@ -152,7 +166,9 @@ The spec's `users` table is Supabase `auth.users`; `ai_usage` and `ai_cost_event
 
 `supabase/tests/tutor.sql` (0009–0010) asserts: students can't forge tutor replies, edit messages, reset counters or write memory; over-long messages and invalid tutor names are refused; messages can't be attached to another student's conversation (even by the server); a second student can't read, rename, delete or write into the first student's conversations, tutor or memory, and `get_tutor_context` with someone else's conversation id returns nothing; a parent with every sharing switch on sees nothing; anonymous users are refused; deleting a conversation deletes its messages; students can delete memory; quota reflects plan data and recent messages.
 
-Last run of all suites: **2026-11-01 — all passed**, with no test data left behind (with a negative control confirming failed assertions abort the run). Rerun after every migration that touches policies.
+`supabase/tests/learning_intelligence.sql` (0011–0012) asserts: a new student starts empty; exposure creates "Introduced" and nothing else; one correct answer stays "Introduced" (not assessed); two wrong answers → Developing with no weakness yet, repeated wrong answers → a weakness; consistent correct answers lift the level, withdraw the weakness and log the change; same-day evidence reaches Strong (and a strength) but not Mastered, evidence across days with an independent explanation reaches Mastered, a recent mistake drops it; learning patterns are counted; nonsense topics and subjects the student doesn't take are refused; tutor context carries only the relevant subject/topic and never dismissed items; students can confirm, correct (only with a note) and dismiss but can't change confidence; a second student sees and changes nothing; a linked parent with every switch on sees nothing and can't call the profile; a student can reset a topic and clear everything.
+
+Last run of all suites: **2026-11-02 — all passed** (tutor.sql re-run after 0012), with no test data left behind (with a negative control confirming failed assertions abort the run). Rerun after every migration that touches policies.
 
 ## 7. Regenerating types
 

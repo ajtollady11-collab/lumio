@@ -137,7 +137,7 @@ Profiles are created by the `on_auth_user_created` trigger. The requested role i
 
 ## 5c. Personal AI tutor
 
-Pages: `/app/tutor` (new conversation; `?subject=slug` preselects), `/app/tutor/c/[id]` (existing), `/app/tutor/settings` (customisation + "what your tutor remembers").
+Pages: `/app/tutor` (new conversation; `?subject=slug` preselects), `/app/tutor/c/[id]` (existing), `/app/tutor/settings` (customisation + link to the learning memory). `?topic=` pre-fills the topic.
 
 ```
 Browser ──POST /api/tutor/chat {conversationId, isNew, content, subjectId?, topic?}──▶ route handler
@@ -151,6 +151,10 @@ Browser ──POST /api/tutor/chat {conversationId, isNew, content, subjectId?, 
 ```
 
 A new conversation's UUID is generated in the browser so the address bar can switch to `/app/tutor/c/<id>` (via `history.replaceState`) without reloading. If the provider fails before replying, the student's message is removed and handed back to the composer; if the student presses Stop, the partial reply is kept and marked "interrupted".
+
+## 5d. My Learning Profile (`/app/progress`)
+
+Server page; four parallel reads as the student (snapshot, activity, `get_learning_profile`, cached curriculum names) plus a tiny tutor read. Presentation is pure (`LearningProfile`), so it renders identically in tests. Client islands: topic rows (expand/reset) and the memory manager; both call server actions in `src/server/learning/actions.ts` and `router.refresh()`. The dashboard and subjects page read the same RPC; if it fails they still render without topic detail. `/app/tutor?subject=…&topic=…` pre-fills the tutor.
 
 ## 6. Route protection
 

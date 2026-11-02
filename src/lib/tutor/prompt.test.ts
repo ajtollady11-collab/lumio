@@ -11,6 +11,7 @@ import {
 import {
   buildTutorSystem,
   curriculumSection,
+  learningSection,
   studentSection,
   TEACHING_FOUNDATION,
   type StudentContext,
@@ -50,7 +51,7 @@ const student: StudentContext = {
       lastStudiedDate: "2026-11-01",
     },
   ],
-  memory: [],
+  learning: { topics: [], insights: [], patterns: [], knownTopics: [] },
 };
 
 const system = (tutor: TutorSettings, s = student) =>
@@ -101,15 +102,44 @@ describe("tutor system prompt", () => {
       "GCSE Mathematics; exam board not yet chosen; average 65% across 3 assessed activities in Lumio.",
     );
     expect(record).toContain('Their goals, in their words: "Get an A* in Biology"');
-    expect(record).toContain("Recorded learning history: none yet.");
+    expect(record).not.toMatch(/Recorded learning|<learning_profile>/); // learning memory lives in its own, scoped section
   });
 
-  it("lists only recorded memory items", () => {
-    const record = studentSection({
-      ...student,
-      memory: [{ kind: "topic_studied", subjectName: "Biology", topic: "Osmosis", detail: null, occurrences: 3 }],
+  it("describes only the recorded learning it was given, in plain terms", () => {
+    const section = learningSection({
+      topics: [
+        { subjectName: "Biology", topic: "Osmosis", level: 3, evidenceCount: 4, correctCount: 1, incorrectCount: 3, isFocus: true },
+        { subjectName: "Biology", topic: "Enzymes", level: 2, evidenceCount: 1, correctCount: 1, incorrectCount: 0, isFocus: false },
+      ],
+      insights: [
+        { kind: "misconception", subjectName: "Biology", topic: "Osmosis", detail: "Thinks solute moves, not water", confirmed: false, studentNote: null, confidence: "medium", evidenceSummary: null },
+        { kind: "weakness", subjectName: "Biology", topic: "Osmosis", detail: null, confirmed: false, studentNote: null, confidence: "medium", evidenceSummary: "3 incorrect — since 2 Nov" },
+        { kind: "strength", subjectName: "Biology", topic: "Cells", detail: null, confirmed: false, studentNote: "I struggle with this actually", confidence: "medium", evidenceSummary: null },
+      ],
+      patterns: [{ approach: "Worked examples", occurrences: 3 }],
+      knownTopics: ["Osmosis", "Enzymes"],
     });
-    expect(record).toContain("- Biology: Osmosis — studied with you (3 times).");
+    expect(section).toContain("- [current topic] Biology: Osmosis — Developing understanding (1 right, 3 wrong of 4 recorded).");
+    expect(section).toContain("- Biology: Enzymes — introduced, not assessed yet.");
+    expect(section).toContain("previous misconception: Thinks solute moves, not water.");
+    expect(section).toContain("needs more work (3 incorrect — since 2 Nov)");
+    expect(section).toContain('the student corrected an earlier note: "I struggle with this actually". Trust their correction.');
+    expect(section).toContain("worked examples (3 times)");
+    expect(section).toContain("reuse when recording evidence): Osmosis; Enzymes.");
+  });
+
+  it("says plainly when nothing is recorded, and asks the tutor not to assume", () => {
+    expect(learningSection({ topics: [], insights: [], patterns: [], knownTopics: [] })).toContain(
+      "Nothing recorded yet for this subject or topic. Don't assume prior knowledge either way.",
+    );
+  });
+
+  it("tells the tutor how to adapt and when (not) to record evidence", () => {
+    expect(TEACHING_FOUNDATION).toMatch(/Strong or Mastered: don't re-teach from the beginning/);
+    expect(TEACHING_FOUNDATION).toMatch(/try a different approach from before/);
+    expect(TEACHING_FOUNDATION).toMatch(/Do NOT call it when they simply ask a question/);
+    expect(TEACHING_FOUNDATION).toMatch(/never feelings, family, health or anything personal/);
+    expect(system(DEFAULT_TUTOR).personal).toContain("<learning_profile>");
   });
 
   it("separates verified specification content from general knowledge", () => {

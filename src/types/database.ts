@@ -553,19 +553,25 @@ export type Database = {
       }
       student_memory: {
         Row: {
+          confidence: Database["public"]["Enums"]["insight_confidence"]
           detail: string | null
+          evidence_summary: string | null
           first_seen_at: string
           id: string
           kind: Database["public"]["Enums"]["memory_kind"]
           last_seen_at: string
           occurrences: number
           source: Database["public"]["Enums"]["memory_source"]
+          status: Database["public"]["Enums"]["insight_status"]
           student_id: string
+          student_note: string | null
           subject_id: string | null
           topic: string
         }
         Insert: {
+          confidence?: Database["public"]["Enums"]["insight_confidence"]
           detail?: string | null
+          evidence_summary?: string | null
           first_seen_at?: string
           id?: string
           kind: Database["public"]["Enums"]["memory_kind"]
@@ -577,14 +583,18 @@ export type Database = {
           topic: string
         }
         Update: {
+          confidence?: Database["public"]["Enums"]["insight_confidence"]
           detail?: string | null
+          evidence_summary?: string | null
           first_seen_at?: string
           id?: string
           kind?: Database["public"]["Enums"]["memory_kind"]
           last_seen_at?: string
           occurrences?: number
           source?: Database["public"]["Enums"]["memory_source"]
+          status?: Database["public"]["Enums"]["insight_status"]
           student_id?: string
+          student_note?: string | null
           subject_id?: string | null
           topic?: string
         }
@@ -955,6 +965,189 @@ export type Database = {
           },
         ]
       }
+      topic_evidence: {
+        Row: {
+          conversation_id: string | null
+          created_at: string
+          difficulty: Database["public"]["Enums"]["evidence_difficulty"]
+          effective_approach: string | null
+          id: number
+          kind: Database["public"]["Enums"]["evidence_kind"]
+          misconception: string | null
+          next_step: string | null
+          score_percent: number | null
+          source: Database["public"]["Enums"]["memory_source"]
+          student_confidence: string | null
+          student_id: string
+          subject_id: string
+          topic: string
+          topic_key: string
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string
+          difficulty?: Database["public"]["Enums"]["evidence_difficulty"]
+          effective_approach?: string | null
+          id?: number
+          kind: Database["public"]["Enums"]["evidence_kind"]
+          misconception?: string | null
+          next_step?: string | null
+          score_percent?: number | null
+          source: Database["public"]["Enums"]["memory_source"]
+          student_confidence?: string | null
+          student_id: string
+          subject_id: string
+          topic: string
+          topic_key: string
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string
+          difficulty?: Database["public"]["Enums"]["evidence_difficulty"]
+          effective_approach?: string | null
+          id?: number
+          kind?: Database["public"]["Enums"]["evidence_kind"]
+          misconception?: string | null
+          next_step?: string | null
+          score_percent?: number | null
+          source?: Database["public"]["Enums"]["memory_source"]
+          student_confidence?: string | null
+          student_id?: string
+          subject_id?: string
+          topic?: string
+          topic_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topic_evidence_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "topic_evidence_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      topic_mastery: {
+        Row: {
+          correct_count: number
+          evidence_count: number
+          first_seen_at: string
+          incorrect_count: number
+          last_evidence_at: string | null
+          last_seen_at: string
+          level: number
+          level_changed_at: string | null
+          score: number | null
+          student_id: string
+          subject_id: string
+          topic: string
+          topic_key: string
+          updated_at: string
+        }
+        Insert: {
+          correct_count?: number
+          evidence_count?: number
+          first_seen_at?: string
+          incorrect_count?: number
+          last_evidence_at?: string | null
+          last_seen_at?: string
+          level?: number
+          level_changed_at?: string | null
+          score?: number | null
+          student_id: string
+          subject_id: string
+          topic: string
+          topic_key: string
+          updated_at?: string
+        }
+        Update: {
+          correct_count?: number
+          evidence_count?: number
+          first_seen_at?: string
+          incorrect_count?: number
+          last_evidence_at?: string | null
+          last_seen_at?: string
+          level?: number
+          level_changed_at?: string | null
+          score?: number | null
+          student_id?: string
+          subject_id?: string
+          topic?: string
+          topic_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topic_mastery_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "topic_mastery_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      topic_mastery_changes: {
+        Row: {
+          changed_at: string
+          from_level: number
+          id: number
+          student_id: string
+          subject_id: string
+          to_level: number
+          topic: string
+          topic_key: string
+        }
+        Insert: {
+          changed_at?: string
+          from_level: number
+          id?: number
+          student_id: string
+          subject_id: string
+          to_level: number
+          topic: string
+          topic_key: string
+        }
+        Update: {
+          changed_at?: string
+          from_level?: number
+          id?: number
+          student_id?: string
+          subject_id?: string
+          to_level?: number
+          topic?: string
+          topic_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topic_mastery_changes_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "topic_mastery_changes_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tutor_conversations: {
         Row: {
           created_at: string
@@ -1192,9 +1385,29 @@ export type Database = {
     }
     Functions: {
       get_dashboard_activity: { Args: never; Returns: Json }
+      clear_learning_memory: { Args: never; Returns: undefined }
+      get_learning_profile: { Args: never; Returns: Json }
       get_tutor_context: {
-        Args: { p_conversation_id?: string; p_history?: number }
+        Args: { p_conversation_id?: string; p_history?: number; p_subject_id?: string; p_topic?: string }
         Returns: Json
+      }
+      reset_learning_topic: { Args: { p_subject: string; p_topic_key: string }; Returns: undefined }
+      service_record_learning: {
+        Args: {
+          p_approach: string | null
+          p_conversation: string | null
+          p_difficulty: Database["public"]["Enums"]["evidence_difficulty"] | null
+          p_kind: Database["public"]["Enums"]["evidence_kind"] | null
+          p_misconception: string | null
+          p_next_step: string | null
+          p_score: number | null
+          p_source: Database["public"]["Enums"]["memory_source"]
+          p_student: string
+          p_student_confidence: string | null
+          p_subject: string
+          p_topic: string
+        }
+        Returns: string
       }
       get_tutor_quota: { Args: never; Returns: Json }
       service_remember: {
@@ -1269,7 +1482,11 @@ export type Database = {
         | "exam_practice"
         | "revision"
         | "notes"
-      memory_kind: "topic_studied" | "strength" | "weakness" | "misconception" | "note"
+      evidence_difficulty: "foundation" | "standard" | "challenging"
+      evidence_kind: "correct" | "incorrect" | "partial" | "independent_explanation" | "needed_reexplanation" | "assessment"
+      insight_confidence: "low" | "medium" | "high"
+      insight_status: "active" | "confirmed" | "corrected" | "dismissed"
+      memory_kind: "topic_studied" | "strength" | "weakness" | "misconception" | "note" | "learning_pattern"
       memory_source: "tutor_conversation" | "assessment" | "lesson" | "student"
       tutor_depth: "simple" | "standard" | "detailed"
       tutor_message_role: "user" | "assistant"
@@ -1437,7 +1654,11 @@ export const Constants = {
       report_scope: ["activity", "results", "conversations"],
       staff_role: ["admin", "support"],
       study_activity_type: ["lesson", "tutor_session", "quiz", "flashcards", "exam_practice", "revision", "notes"],
-      memory_kind: ["topic_studied", "strength", "weakness", "misconception", "note"],
+      evidence_difficulty: ["foundation", "standard", "challenging"],
+      evidence_kind: ["correct", "incorrect", "partial", "independent_explanation", "needed_reexplanation", "assessment"],
+      insight_confidence: ["low", "medium", "high"],
+      insight_status: ["active", "confirmed", "corrected", "dismissed"],
+      memory_kind: ["topic_studied", "strength", "weakness", "misconception", "note", "learning_pattern"],
       memory_source: ["tutor_conversation", "assessment", "lesson", "student"],
       tutor_depth: ["simple", "standard", "detailed"],
       tutor_message_role: ["user", "assistant"],

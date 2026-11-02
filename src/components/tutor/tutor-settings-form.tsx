@@ -1,6 +1,7 @@
 "use client";
 
-import { Brain, Check, Trash2 } from "lucide-react";
+import { ArrowRight, Brain, Check } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { TutorOrb } from "@/components/brand/tutor-orb";
@@ -8,7 +9,6 @@ import { SaveError } from "@/components/onboarding/save-error";
 import { useSave } from "@/components/onboarding/use-save";
 import { Button } from "@/components/ui/button";
 import { ChipGroup, ChoiceCard } from "@/components/ui/choice";
-import { Dialog } from "@/components/ui/dialog";
 import { TextField } from "@/components/ui/field";
 import {
   DEPTHS,
@@ -22,7 +22,7 @@ import {
   type TutorPersonality,
   type TutorSettings,
 } from "@/lib/tutor/options";
-import { forgetMemory, saveTutorSettings } from "@/server/tutor/actions";
+import { saveTutorSettings } from "@/server/tutor/actions";
 
 /** A plain-English summary of the settings — from the same table the AI is given. */
 export function describeTutor(t: TutorSettings): string {
@@ -144,112 +144,30 @@ export function TutorSettingsForm({ initial, customised }: { initial: TutorSetti
   );
 }
 
-type MemoryItem = {
-  id: string;
-  kind: string;
-  subjectName: string | null;
-  topic: string;
-  occurrences: number;
-  lastSeenAt: string;
-};
-const KIND_LABEL: Record<string, string> = {
-  topic_studied: "Studied together",
-  strength: "Strength",
-  weakness: "Needs work",
-  misconception: "Misconception to revisit",
-  note: "Note",
-};
-
-export function MemoryPanel({ items, tutorName }: { items: MemoryItem[]; tutorName: string }) {
-  const router = useRouter();
-  const save = useSave();
-  const [confirmAll, setConfirmAll] = useState(false);
-  const fmt = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
+/** Learning memory now lives on the profile page; this card points there. */
+export function MemoryLinkCard({ tutorName, count }: { tutorName: string; count: number }) {
   return (
     <section aria-labelledby="memory-heading" className="surface rounded-stage p-5 sm:p-6">
-      <div className="flex items-center justify-between gap-3">
-        <h2
-          id="memory-heading"
-          className="flex items-center gap-2.5 font-display text-[1.0625rem] font-semibold tracking-tight"
-        >
-          <Brain className="size-[1.125rem] text-fg-subtle" aria-hidden />
-          What {tutorName} remembers
-        </h2>
-        {items.length > 0 && (
-          <Button variant="ghost" size="sm" onClick={() => setConfirmAll(true)}>
-            Forget everything
-          </Button>
-        )}
-      </div>
-      <p className="mt-2 text-sm leading-relaxed text-fg-muted">
-        {tutorName} also knows what’s in your profile — your subjects, exam boards, target grades, exam dates and how
-        you like to learn — and any quiz results. You can change those in Settings. Below is what has been recorded from
-        your sessions. Nothing else is remembered, and parents can’t see this.
-      </p>
-      <SaveError error={save.error} onRetry={save.retry} returnTo="/app/tutor/settings" />
-      {items.length === 0 ? (
-        <p className="mt-4 rounded-panel border border-dashed border-line-strong p-4 text-sm text-fg-subtle">
-          Nothing recorded yet. When you choose a subject and topic in a conversation, it’s noted here so {tutorName}{" "}
-          can build on it next time.
-        </p>
-      ) : (
-        <ul className="mt-4 divide-y divide-line">
-          {items.map((m) => (
-            <li key={m.id} className="flex items-center justify-between gap-3 py-3">
-              <div className="min-w-0">
-                <p className="truncate font-medium">
-                  {m.subjectName ? `${m.subjectName}: ` : ""}
-                  {m.topic}
-                </p>
-                <p className="text-[0.8125rem] text-fg-subtle">
-                  {KIND_LABEL[m.kind] ?? m.kind}
-                  {m.occurrences > 1 ? ` · ${m.occurrences} times` : ""} · last {fmt.format(new Date(m.lastSeenAt))}
-                </p>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                aria-label={`Forget ${m.topic}`}
-                icon={<Trash2 className="size-4" aria-hidden />}
-                disabled={save.pending}
-                onClick={() =>
-                  save.run(
-                    () => forgetMemory(m.id),
-                    () => router.refresh(),
-                  )
-                }
-              />
-            </li>
-          ))}
-        </ul>
-      )}
-      <Dialog
-        open={confirmAll}
-        onClose={() => setConfirmAll(false)}
-        title="Forget everything?"
-        description={`${tutorName} will forget every item listed here. Your profile, conversations and results aren’t affected.`}
+      <h2
+        id="memory-heading"
+        className="flex items-center gap-2.5 font-display text-[1.0625rem] font-semibold tracking-tight"
       >
-        <div className="mt-2 flex justify-end gap-2">
-          <Button variant="secondary" onClick={() => setConfirmAll(false)}>
-            Cancel
-          </Button>
-          <Button
-            variant="danger"
-            loading={save.pending}
-            onClick={() =>
-              save.run(
-                () => forgetMemory("all"),
-                () => {
-                  setConfirmAll(false);
-                  router.refresh();
-                },
-              )
-            }
-          >
-            Forget everything
-          </Button>
-        </div>
-      </Dialog>
+        <Brain className="size-[1.125rem] text-fg-subtle" aria-hidden />
+        What {tutorName} remembers
+      </h2>
+      <p className="mt-2 text-sm leading-relaxed text-fg-muted">
+        {count === 0
+          ? `Nothing recorded yet. As you answer ${tutorName}’s questions, what you understand and what needs work is noted so lessons build on it.`
+          : `${tutorName} is building on what you’ve shown in your sessions. See every item, why it was recorded, and correct, dismiss or delete it.`}{" "}
+        Parents can’t see this.
+      </p>
+      <Link
+        href="/app/progress#memory"
+        className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-blue-400 hover:text-blue-300"
+      >
+        Open My Learning Profile
+        <ArrowRight className="size-4" aria-hidden />
+      </Link>
     </section>
   );
 }

@@ -110,21 +110,3 @@ export async function loadEarlierMessages(
       .map((m) => ({ id: m.id, role: m.role, content: m.content, status: m.status, createdAt: m.created_at })),
   });
 }
-
-export async function forgetMemory(memoryId: unknown): Promise<ActionResult> {
-  const id = await student();
-  if (typeof id !== "string") return id;
-  const db = await createSupabaseServerClient();
-  const query = db.from("student_memory").delete();
-  if (memoryId === "all") {
-    const { error } = await query.eq("student_id", id);
-    if (error) return fromDatabaseError(error);
-  } else {
-    const parsed = z.uuid().safeParse(memoryId);
-    if (!parsed.success) return failure("invalid");
-    const { error } = await query.eq("id", parsed.data);
-    if (error) return fromDatabaseError(error);
-  }
-  refresh();
-  return success();
-}

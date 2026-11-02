@@ -11,7 +11,7 @@ const ACTIONS: QuickAction[] = [
   { label: "Ask my tutor", detail: "Any subject, any time", href: "/app/tutor", icon: Sparkles },
   { label: "Revise a subject", detail: "Your subjects", href: "/app/subjects", icon: GraduationCap },
   { label: "Take a quiz", detail: "Check understanding", href: "/app/revision", icon: BookOpenCheck },
-  { label: "View my progress", detail: "Mastery & streaks", href: "/app/progress", icon: BarChart3 },
+  { label: "View my progress", detail: "Your learning profile", href: "/app/progress", icon: BarChart3 },
 ];
 
 /**

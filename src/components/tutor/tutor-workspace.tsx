@@ -44,6 +44,7 @@ export type TutorWorkspaceProps = {
   consentRequired: boolean;
   remainingMessages: number;
   initialSubjectId: string | null;
+  initialTopic?: string;
 };
 
 export function TutorWorkspace(props: TutorWorkspaceProps) {
@@ -52,7 +53,7 @@ export function TutorWorkspace(props: TutorWorkspaceProps) {
   const [conversations, setConversations] = useState(props.conversations);
   const [title, setTitle] = useState(active?.conversation.title ?? null);
   const [subjectId, setSubjectId] = useState<string | null>(active?.conversation.subjectId ?? props.initialSubjectId);
-  const [topic, setTopic] = useState(active?.conversation.topic ?? "");
+  const [topic, setTopic] = useState(active?.conversation.topic ?? props.initialTopic ?? "");
   const [draft, setDraft] = useState("");
   const [hasEarlier, setHasEarlier] = useState(active?.hasEarlier ?? false);
   const [historyOpen, setHistoryOpen] = useState(false);

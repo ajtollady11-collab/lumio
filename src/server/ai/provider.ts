@@ -16,11 +16,14 @@ export type ChatProviderRequest = {
   system: { text: string; cache?: boolean }[];
   messages: ChatTurn[];
   maxTokens: number;
+  /** Optional tools the model may call alongside its reply (e.g. structured learning evidence). */
+  tools?: { name: string; description: string; input_schema: Record<string, unknown> & { type: "object" } }[];
   signal?: AbortSignal;
 };
 
 export type ChatChunk =
   | { type: "text"; text: string }
+  | { type: "tool"; name: string; input: unknown }
   | { type: "end"; usage: TokenUsage; requestId: string | null; stopReason: string | null };
 
 export type ProviderErrorKind =
@@ -56,6 +59,7 @@ export function createAnthropicProvider(apiKey = requireServerEnv("ANTHROPIC_API
               ...(b.cache ? { cache_control: { type: "ephemeral" as const } } : {}),
             })),
             messages: req.messages,
+            ...(req.tools?.length ? { tools: req.tools, tool_choice: { type: "auto" as const } } : {}),
           },
           { signal: req.signal },
         );
@@ -65,6 +69,9 @@ export function createAnthropicProvider(apiKey = requireServerEnv("ANTHROPIC_API
           }
         }
         const final = await stream.finalMessage();
+        for (const block of final.content) {
+          if (block.type === "tool_use") yield { type: "tool", name: block.name, input: block.input };
+        }
         yield {
           type: "end",
           usage: {

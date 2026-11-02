@@ -91,6 +91,15 @@ Additional obligations:
 * **Retention**: define per table (e.g. raw conversation text 12 months, aggregates longer). 🔜 6
 * **Safeguarding**: disclosure-handling policy, designated safeguarding lead, escalation path in the tutor, signposting to Childline/Samaritans. ⚠️ before Phase 3 launch
 
+## 6a. Learning memory — privacy controls (2026-11-02)
+
+* **Visible to the student, invisible to parents.** `topic_evidence`, `topic_mastery`, `topic_mastery_changes` and `student_memory` have no parent policy; `get_learning_profile()` refuses non-students. Tested with a linked parent who has every sharing switch on.
+* **Academic facts only.** Evidence is structured (enums + short topic/misconception); the server drops anything that looks like contact details, identity, family or mental-health content (`looksPersonal`) before storing. The tutor's instructions forbid recording personal information.
+* **Student control** (`/app/progress#memory`): see every insight with when and why it was recorded and its confidence; confirm, correct (with their own note, which the tutor is told to trust), dismiss (the tutor stops using it, and it stays dismissed), restore, delete one, reset a topic, or clear everything (confirmation dialog).
+* **Writes are server-only** via `service_record_learning` (service role). Students may change only `status` and `student_note` (column grants); every action re-checks the session and filters by the session's own id, never an id from the browser.
+* **Minimisation:** no transcript copies; evidence rows capped at 3,000 per student; deleting a topic or clearing memory removes evidence, levels and history.
+* Not used to train external models (Anthropic API terms: no training on API data by default).
+
 ## 7. Release gates
 
 A phase cannot ship until: RLS suite passes; Supabase security advisor shows no findings (✅ currently clean); new tables have documented policies and tests; secrets reviewed; dependencies audited (`npm audit` — current moderate findings are dev/build-time and tracked).

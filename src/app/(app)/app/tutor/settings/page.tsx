@@ -5,9 +5,10 @@ import { Suspense } from "react";
 import { FormSkeleton } from "@/components/feedback/skeletons";
 import { ServiceUnavailable } from "@/components/feedback/service-unavailable";
 import { PageHeader } from "@/components/shell/page-header";
-import { MemoryPanel, TutorSettingsForm } from "@/components/tutor/tutor-settings-form";
+import { MemoryLinkCard, TutorSettingsForm } from "@/components/tutor/tutor-settings-form";
 import { requireViewer } from "@/lib/auth/session";
-import { getTutorMemory, getTutorPageData } from "@/server/tutor/data";
+import { getLearningProfile } from "@/server/learning/data";
+import { getTutorPageData } from "@/server/tutor/data";
 
 export const metadata: Metadata = { title: "Customise your tutor" };
 
@@ -31,12 +32,12 @@ export default function TutorSettingsPage() {
 
 async function Settings() {
   await requireViewer("/app/tutor/settings");
-  const [data, memory] = await Promise.all([getTutorPageData(null), getTutorMemory()]);
-  if (!data || data === "not_found" || !memory) return <ServiceUnavailable />;
+  const [data, profile] = await Promise.all([getTutorPageData(null), getLearningProfile()]);
+  if (!data || data === "not_found" || !profile) return <ServiceUnavailable />;
   return (
     <div className="space-y-10">
       <TutorSettingsForm initial={data.tutor} customised={data.tutorCustomised} />
-      <MemoryPanel items={memory} tutorName={data.tutor.name} />
+      <MemoryLinkCard count={profile.insights.length + profile.mastery.length} tutorName={data.tutor.name} />
     </div>
   );
 }

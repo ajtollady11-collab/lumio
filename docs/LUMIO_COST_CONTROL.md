@@ -59,6 +59,15 @@ Well inside the £3–4 target, leaving room for lessons, voice and marking. Rea
 
 **Also set a hard monthly spend limit in the Anthropic console** (Billing → Limits) as a backstop.
 
+## 3b. Student intelligence — cost (2026-11-02)
+
+* **No additional AI calls.** Insight extraction is a tool offered in the existing tutor call. The tool definition (~350 tokens) sits in the cached prefix, so after the first turn it costs cache-read price (~$0.0000035 per turn on Haiku).
+* When the model records evidence it writes ~50–100 extra output tokens (≈ $0.00003–0.00005 on Haiku). It records only on genuine answers, not every message.
+* Relevant learning memory adds ~150–400 input tokens per turn (≈ $0.00002–0.00004), replacing the previous 25-item memory list.
+* Worst case at the full Premium allowance: < $0.10 per student per month extra. Usage is recorded in the same `usage_events` row as the reply (tokens include the tool call). No new allowance is consumed.
+* Database: profile page and dashboard each use one RPC; evidence writes are capped per student (3,000 rows) — comfortably within the Supabase free plan.
+* Recommendations are rule-based: zero AI cost.
+
 ## 3. Usage service — remaining work (`src/server/usage/`)
 
 ```

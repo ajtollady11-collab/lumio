@@ -10,6 +10,7 @@ import {
   type TutorContextRow,
 } from "@/lib/tutor/context";
 import { buildTutorSystem, MAX_TOKENS_BY_DEPTH, type CurriculumContext } from "@/lib/tutor/prompt";
+import { acceptEvidence, EVIDENCE_TOOL, EVIDENCE_TOOL_NAME, type AcceptedEvidence } from "@/lib/tutor/evidence";
 import { checkQuota } from "@/lib/tutor/quota";
 import { titleFromMessage, type ChatRequest } from "@/lib/tutor/schemas";
 import type { TutorErrorCode, TutorStreamEvent } from "@/lib/tutor/stream";
@@ -20,7 +21,7 @@ import { ProviderError } from "@/server/ai/provider";
  * One tutor turn, start to finish:
  *   context (1 RPC) → consent & quota → conversation → save the student's
  *   message → route model → build prompt → stream reply → save reply, usage,
- *   memory and activity.
+ *   learning evidence, memory and activity.
  *
  * Dependencies are injected so the whole flow is unit-tested with fakes.
  * `store.asStudent` runs with the student's session (RLS); `store.asServer`
@@ -29,7 +30,8 @@ import { ProviderError } from "@/server/ai/provider";
 
 export type TutorStore = {
   asStudent: {
-    context(conversationId: string): Promise<TutorContextRow | null>;
+    /** Subject/topic select which learning memory comes back (only relevant records). */
+    context(conversationId: string, subjectId: string | null, topic: string | null): Promise<TutorContextRow | null>;
     createConversation(c: {
       id: string;
       title: string;
@@ -61,7 +63,10 @@ export type TutorStore = {
       requestId: string | null;
       succeeded: boolean;
     }): Promise<void>;
-    rememberTopic(subjectId: string, topic: string): Promise<void>;
+    /** Exposure: the student chose to study this topic (no judgement). */
+    recordExposure(subjectId: string, topic: string, conversationId: string): Promise<void>;
+    /** Validated evidence about the student's understanding. */
+    recordLearning(e: AcceptedEvidence & { conversationId: string }): Promise<void>;
     recordTutorActivity(conversationId: string, subjectId: string | null, title: string): Promise<void>;
   };
   names(): Promise<Names | null>;
@@ -79,7 +84,10 @@ export async function* runTutorTurn(
   store: TutorStore,
   provider: ChatProvider,
 ): AsyncGenerator<TutorStreamEvent> {
-  const [row, names] = await Promise.all([store.asStudent.context(request.conversationId), store.names()]);
+  const [row, names] = await Promise.all([
+    store.asStudent.context(request.conversationId, request.subjectId, request.topic),
+    store.names(),
+  ]);
   if (!row || !names) return yield fail("unavailable", "Lumio's servers couldn't be reached. Try again in a moment.");
 
   // Under-13s need a linked parent before AI features run (UK Children's Code).
@@ -100,6 +108,7 @@ export async function* runTutorTurn(
   if (subjectId && !row.subjects.some((s) => s.subjectId === subjectId)) {
     return yield fail("invalid", "Choose one of your own subjects.");
   }
+  const focusChanged = !conversation || subjectId !== conversation.subjectId || topic !== conversation.topic;
   let title = conversation?.title ?? titleFromMessage(request.content, topic);
   if (!conversation) {
     if (!request.isNew) return yield fail("not_found", "That conversation couldn't be found.");
@@ -154,17 +163,21 @@ export async function* runTutorTurn(
   let usage: TokenUsage | null = null;
   let requestId: string | null = null;
   let interrupted = false;
+  let evidenceInput: unknown = null;
   try {
     for await (const chunk of provider.stream({
       model: route.model,
       system: [{ text: system.foundation, cache: true }, { text: system.personal }],
       messages: turns,
       maxTokens: MAX_TOKENS_BY_DEPTH[tutor.depth],
+      tools: [EVIDENCE_TOOL],
       signal,
     })) {
       if (chunk.type === "text") {
         text += chunk.text;
         yield { type: "delta", text: chunk.text };
+      } else if (chunk.type === "tool") {
+        if (chunk.name === EVIDENCE_TOOL_NAME && evidenceInput === null) evidenceInput = chunk.input;
       } else {
         usage = chunk.usage;
         requestId = chunk.requestId;
@@ -211,6 +224,16 @@ export async function* runTutorTurn(
     cacheWriteTokens: 0,
     cacheReadTokens: 0,
   };
+  // Learning evidence from the same AI call — validated, never trusted blindly.
+  const recordEvidence = async () => {
+    if (evidenceInput === null || interrupted) return;
+    const decision = acceptEvidence(evidenceInput, {
+      subjects: student.subjects.map((s) => ({ id: s.subjectId, name: s.name })),
+      hadPriorTutorTurn: history.some((h) => h.role === "assistant"),
+    });
+    if (decision.ok) await store.asServer.recordLearning({ ...decision.evidence, conversationId: conversation.id });
+  };
+
   // Bookkeeping must never break the student's reply.
   await Promise.allSettled([
     store.asServer.recordUsage({
@@ -222,7 +245,8 @@ export async function* runTutorTurn(
       requestId,
       succeeded: true,
     }),
-    subjectId && topic ? store.asServer.rememberTopic(subjectId, topic) : Promise.resolve(),
+    subjectId && topic && focusChanged ? store.asServer.recordExposure(subjectId, topic, conversation.id) : Promise.resolve(),
+    recordEvidence(),
     conversation.messageCount === 0
       ? store.asServer.recordTutorActivity(conversation.id, subjectId, title)
       : Promise.resolve(),

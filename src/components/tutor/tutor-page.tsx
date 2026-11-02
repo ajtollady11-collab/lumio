@@ -8,9 +8,11 @@ import { TutorWorkspace } from "./tutor-workspace";
 export async function TutorPage({
   conversationId,
   subjectSlug,
+  initialTopic,
 }: {
   conversationId: string | null;
   subjectSlug?: string;
+  initialTopic?: string;
 }) {
   await requireViewer(conversationId ? `/app/tutor/c/${conversationId}` : "/app/tutor");
   const data = await getTutorPageData(conversationId);
@@ -30,6 +32,7 @@ export async function TutorPage({
       missing={data.readiness.ready ? [] : data.readiness.missing}
       consentRequired={data.consentRequired}
       remainingMessages={data.remainingMessages}
+      initialTopic={initialTopic ?? ""}
       initialSubjectId={subjectSlug ? (data.subjects.find((s) => s.slug === subjectSlug)?.id ?? null) : null}
     />
   );

@@ -46,15 +46,37 @@ export const tutorContextSchema = z.object({
       lastStudiedDate: isoDate.nullable(),
     }),
   ),
-  memory: z.array(
-    z.object({
-      kind: z.enum(["topic_studied", "strength", "weakness", "misconception", "note"]),
-      subjectId: z.string().nullable(),
-      topic: z.string(),
-      detail: z.string().nullable(),
-      occurrences: z.coerce.number(),
-    }),
-  ),
+  learning: z.object({
+    focusSubjectId: z.string().nullable(),
+    topics: z.array(
+      z.object({
+        subjectId: z.string(),
+        topic: z.string(),
+        level: z.coerce.number(),
+        evidenceCount: z.coerce.number(),
+        correctCount: z.coerce.number(),
+        incorrectCount: z.coerce.number(),
+        lastEvidenceAt: z.string().nullable(),
+        isFocus: z.boolean(),
+      }),
+    ),
+    insights: z.array(
+      z.object({
+        kind: z.enum(["weakness", "misconception", "strength"]),
+        subjectId: z.string().nullable(),
+        topic: z.string(),
+        detail: z.string().nullable(),
+        status: z.enum(["active", "confirmed", "corrected", "dismissed"]),
+        studentNote: z.string().nullable(),
+        confidence: z.enum(["low", "medium", "high"]),
+        evidenceSummary: z.string().nullable(),
+      }),
+    ),
+    patterns: z.array(
+      z.object({ topic: z.string(), occurrences: z.coerce.number(), status: z.string(), studentNote: z.string().nullable() }),
+    ),
+    knownTopics: z.array(z.string()),
+  }),
   conversation: z
     .object({
       id: z.string(),
@@ -110,13 +132,29 @@ export function studentContextFrom(row: TutorContextRow, names: Names): StudentC
         },
       ];
     }),
-    memory: row.memory.map((m) => ({
-      kind: m.kind,
-      subjectName: nameOf(names.subjects, m.subjectId),
-      topic: m.topic,
-      detail: m.detail,
-      occurrences: m.occurrences,
-    })),
+    learning: {
+      topics: row.learning.topics.map((t) => ({
+        subjectName: nameOf(names.subjects, t.subjectId),
+        topic: t.topic,
+        level: t.level,
+        evidenceCount: t.evidenceCount,
+        correctCount: t.correctCount,
+        incorrectCount: t.incorrectCount,
+        isFocus: t.isFocus,
+      })),
+      insights: row.learning.insights.map((i) => ({
+        kind: i.kind,
+        subjectName: nameOf(names.subjects, i.subjectId),
+        topic: i.topic,
+        detail: i.detail,
+        confirmed: i.status === "confirmed",
+        studentNote: i.status === "corrected" ? i.studentNote : null,
+        confidence: i.confidence,
+        evidenceSummary: i.evidenceSummary,
+      })),
+      patterns: row.learning.patterns.map((p) => ({ approach: p.topic, occurrences: p.occurrences })),
+      knownTopics: row.learning.knownTopics,
+    },
   };
 }
 

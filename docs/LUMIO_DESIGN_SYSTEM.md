@@ -115,7 +115,16 @@ Dashboard layout: 12-column grid on desktop (greeting 8 + streak 4; next-up 7 + 
 | Composer | Floating raised surface pinned above the phone tab bar (with a fade so text never shows through), subject select + optional topic, auto-growing textarea (Enter sends, Shift+Enter new line), round Send / Stop, counter near the limit, "N messages left" when ≤ 20 |
 | Welcome | Large orb, "Hi Alfie — I’m Sage.", a sentence stating what the tutor knows (from the profile), four suggested questions built from real subjects/exams |
 | Setup / consent notices | Shown under the header in place of chatting; list missing variable names in cyan code chips |
-| Tutor settings | Live plain-English preview of how the tutor will teach (from the same option table the AI receives); ChoiceCards for personality and style, chips for pace and depth; memory list with per-item and "Forget everything" |
+| Tutor settings | Live plain-English preview of how the tutor will teach (from the same option table the AI receives); ChoiceCards for personality and style, chips for pace and depth; a card linking to My Learning Profile for memory |
+
+### Added for My Learning Profile (2026-11-02)
+| Component | Notes |
+|---|---|
+| `MasteryMeter` | Five rounded steps (Introduced → Mastered). Fill colour by level: subtle grey, amber (Developing), blue (Good), violet (Strong), cyan (Mastered). **Unassessed topics draw outlines only** — never a fill that could read as a score. No percentages anywhere on the page |
+| Topic row | Name + "4 answers · 1 right"; meter and level label on desktop, meter full-width under the name on phones. Expands (height animation) to the level's meaning, four fact tiles, "How it's changed" timeline, "Practise with your tutor" and "Reset topic" |
+| Profile stats | Four factual count tiles (topics tracked, questions answered, strong or mastered, areas to improve) |
+| Insight card | Kind pill (Area to improve amber, Misconception red, Strength violet, What helps you cyan), "Subject · Topic", detail, "Why: …", recorded/updated dates and confidence, actions as ghost buttons; corrections shown in a blue-tinted note; dismissed items collapsed behind "Show N dismissed" |
+| Dashboard `LearningSnapshot` | Three columns (areas to improve, strengths, improved this month), lists only; subject cards show "3 tracked · 1 strong · 1 to improve" |
 
 ## 7. Responsive behaviour
 

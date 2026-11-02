@@ -1,3 +1,4 @@
+import { levelLabel } from "@/lib/learning/levels";
 import { DEPTHS, PACES, PERSONALITIES, TEACHING_STYLES, optionFor, type TutorSettings } from "./options";
 
 /*
@@ -31,13 +32,30 @@ export type StudentContext = {
     assessment: { averagePercent: number; count: number } | null;
     lastStudiedDate: string | null;
   }[];
-  memory: {
-    kind: "topic_studied" | "strength" | "weakness" | "misconception" | "note";
-    subjectName: string | null;
-    topic: string;
-    detail: string | null;
-    occurrences: number;
-  }[];
+  learning: {
+    /** Only topics/insights relevant to this conversation (selected in SQL). */
+    topics: {
+      subjectName: string | null;
+      topic: string;
+      level: number;
+      evidenceCount: number;
+      correctCount: number;
+      incorrectCount: number;
+      isFocus: boolean;
+    }[];
+    insights: {
+      kind: "weakness" | "misconception" | "strength";
+      subjectName: string | null;
+      topic: string;
+      detail: string | null;
+      confirmed: boolean;
+      studentNote: string | null;
+      confidence: "low" | "medium" | "high";
+      evidenceSummary: string | null;
+    }[];
+    patterns: { approach: string; occurrences: number }[];
+    knownTopics: string[];
+  };
 };
 
 export type CurriculumContext = {
@@ -65,6 +83,24 @@ export const TEACHING_FOUNDATION = `You are a personal tutor inside Lumio, a UK 
 - Encourage independent thinking. For homework, coursework and exam-style questions, help the student understand the method — guide with hints and steps rather than writing out a finished answer for them to copy. If they explicitly ask for a full worked solution to learn from, you may give one, then ask them to try a similar question. Never write coursework or non-exam assessment for them.
 - Keep the student talking. End most replies with a natural next step: a check question, a choice of where to go next, or a short task.
 </teaching_principles>
+
+<learning_profile_rules>
+- <learning_profile> lists what Lumio has actually recorded, for this subject/topic only. Use it to teach better:
+  - Strong or Mastered: don't re-teach from the beginning — check quickly, then build on it or go further.
+  - Developing, a weakness or a recorded misconception: address it directly, try a different approach from before, and check understanding.
+  - "Introduced, not assessed yet": find out what they know with a short question before explaining everything.
+  - Use approaches that have helped before when introducing something new.
+- Never mention levels, counts or "records" mechanically. Speak naturally (e.g. "Last time ionic bonding went really well, so…").
+- If the student corrected a note, trust their correction.
+</learning_profile_rules>
+
+<recording_evidence>
+You have a tool, record_learning_evidence. After writing your reply, call it ONCE if — and only if — the student's latest message gave evidence about their understanding of a topic:
+- they answered a question (yours or an exam-style one): correct, incorrect or partial;
+- they explained an idea correctly in their own words without being asked: independent_explanation;
+- they said your explanation didn't make sense or asked for it again: needed_reexplanation.
+Do NOT call it when they simply ask a question, chat, or ask for an explanation — asking is not a weakness. One correct answer is fine to record; Lumio, not you, decides mastery from many pieces of evidence. Record only academic content: never feelings, family, health or anything personal.
+</recording_evidence>
 
 <honesty>
 - Use only the facts in <student_record>. Never invent the student's grades, results, past lessons or anything you "remember". If something isn't in the record, you don't know it — say so or ask.
@@ -141,25 +177,49 @@ export function studentSection(s: StudentContext): string {
     lines.push("Subjects: none chosen yet.");
   }
 
-  const mem = s.memory.slice(0, 25);
-  if (mem.length) {
-    lines.push("Recorded learning history (from Lumio's records — the only things you may treat as remembered):");
-    const kindLabel = {
-      topic_studied: "studied with you",
-      strength: "strength",
-      weakness: "needs work",
-      misconception: "previous misconception",
-      note: "note",
-    } as const;
-    for (const m of mem) {
+  return `<student_record>\n${lines.join("\n")}\n</student_record>`;
+}
+
+/**
+ * What Lumio has recorded about the student's learning — scoped by the
+ * database to this conversation's subject/topic, so unrelated history is
+ * never sent (cost and privacy).
+ */
+export function learningSection(l: StudentContext["learning"]): string {
+  const lines: string[] = [];
+  if (l.topics.length) {
+    lines.push("Topic mastery (from answers and explanations recorded in Lumio):");
+    for (const t of l.topics) {
+      const assessed = t.evidenceCount >= 2;
       lines.push(
-        `- ${m.subjectName ? `${m.subjectName}: ` : ""}${m.topic} — ${kindLabel[m.kind]}${m.occurrences > 1 ? ` (${m.occurrences} times)` : ""}${m.detail ? `; ${m.detail}` : ""}.`,
+        `- ${t.isFocus ? "[current topic] " : ""}${t.subjectName ? `${t.subjectName}: ` : ""}${t.topic} — ${
+          assessed
+            ? `${levelLabel(t.level)} (${t.correctCount} right, ${t.incorrectCount} wrong of ${t.evidenceCount} recorded)`
+            : "introduced, not assessed yet"
+        }.`,
       );
     }
-  } else {
-    lines.push("Recorded learning history: none yet. This may be one of your first sessions together.");
   }
-  return `<student_record>\n${lines.join("\n")}\n</student_record>`;
+  for (const i of l.insights) {
+    const where = `${i.subjectName ? `${i.subjectName}: ` : ""}${i.topic}`;
+    if (i.studentNote) {
+      lines.push(`- ${where} — the student corrected an earlier note: "${i.studentNote.replace(/"/g, "'")}". Trust their correction.`);
+    } else if (i.kind === "misconception") {
+      lines.push(`- ${where} — previous misconception${i.confirmed ? " (student confirmed)" : ""}: ${i.detail ?? "unspecified"}.`);
+    } else if (i.kind === "weakness") {
+      lines.push(`- ${where} — needs more work${i.evidenceSummary ? ` (${i.evidenceSummary})` : ""}.`);
+    } else {
+      lines.push(`- ${where} — a strength${i.evidenceSummary ? ` (${i.evidenceSummary})` : ""}.`);
+    }
+  }
+  if (l.patterns.length) {
+    lines.push(
+      `What has helped this student understand before: ${l.patterns.map((p) => `${p.approach.toLowerCase()} (${p.occurrences} times)`).join(", ")}.`,
+    );
+  }
+  if (l.knownTopics.length) lines.push(`Known topic names in this subject (reuse when recording evidence): ${l.knownTopics.join("; ")}.`);
+  if (!lines.length) lines.push("Nothing recorded yet for this subject or topic. Don't assume prior knowledge either way.");
+  return `<learning_profile>\n${lines.join("\n")}\n</learning_profile>`;
 }
 
 export function curriculumSection(c: CurriculumContext | null): string {
@@ -206,6 +266,7 @@ export function buildTutorSystem(input: { tutor: TutorSettings; student: Student
     personal: [
       personaSection(input.tutor),
       studentSection(input.student),
+      learningSection(input.student.learning),
       curriculumSection(input.focus.subject),
       focusSection(input.focus),
     ]

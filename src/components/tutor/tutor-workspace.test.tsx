@@ -11,7 +11,6 @@ const actions = vi.hoisted(() => ({
   renameConversation: vi.fn(),
   loadEarlierMessages: vi.fn(),
   saveTutorSettings: vi.fn(),
-  forgetMemory: vi.fn(),
 }));
 vi.mock("@/server/tutor/actions", () => actions);
 

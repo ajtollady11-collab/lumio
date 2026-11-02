@@ -221,7 +221,7 @@ begin
   assert r->'conversation' = 'null'::jsonb, 'B asking for A''s conversation gets nothing';
   assert jsonb_array_length(r->'history') = 0, 'B gets none of A''s messages';
   assert r->'tutor' = 'null'::jsonb, 'B has no tutor settings yet';
-  assert jsonb_array_length(r->'memory') = 0, 'B sees none of A''s memory';
+  assert jsonb_array_length(r->'learning'->'insights') = 0 and jsonb_array_length(r->'learning'->'topics') = 0, 'B sees none of A''s learning memory';
 end $$;
 
 select pg_temp.act_as('00000000-0000-4000-8000-0000000000d2');

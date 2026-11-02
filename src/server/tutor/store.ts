@@ -19,8 +19,13 @@ export async function createTutorStore(studentId: string): Promise<TutorStore> {
 
   return {
     asStudent: {
-      async context(conversationId) {
-        const { data, error } = await db.rpc("get_tutor_context", { p_conversation_id: conversationId, p_history: 12 });
+      async context(conversationId, subjectId, topic) {
+        const { data, error } = await db.rpc("get_tutor_context", {
+          p_conversation_id: conversationId,
+          p_history: 12,
+          ...(subjectId ? { p_subject_id: subjectId } : {}),
+          ...(topic ? { p_topic: topic } : {}),
+        });
         if (error || !data) return null;
         const parsed = tutorContextSchema.safeParse(data);
         if (!parsed.success) {
@@ -115,16 +120,39 @@ export async function createTutorStore(studentId: string): Promise<TutorStore> {
         });
         if (error) console.error("Recording tutor usage failed:", error.message);
       },
-      async rememberTopic(subjectId, topic) {
-        const { error } = await admin.rpc("service_remember", {
+      async recordExposure(subjectId, topic, conversationId) {
+        const { error } = await admin.rpc("service_record_learning", {
           p_student: studentId,
-          p_kind: "topic_studied",
           p_subject: subjectId,
           p_topic: topic,
-          p_detail: null,
+          p_kind: null,
+          p_difficulty: null,
+          p_score: null,
+          p_misconception: null,
+          p_approach: null,
+          p_student_confidence: null,
+          p_next_step: null,
           p_source: "tutor_conversation",
+          p_conversation: conversationId,
         });
-        if (error) console.error("Recording memory failed:", error.message);
+        if (error) console.error("Recording topic exposure failed:", error.message);
+      },
+      async recordLearning(e) {
+        const { error } = await admin.rpc("service_record_learning", {
+          p_student: studentId,
+          p_subject: e.subjectId,
+          p_topic: e.topic,
+          p_kind: e.kind,
+          p_difficulty: e.difficulty,
+          p_score: null,
+          p_misconception: e.misconception,
+          p_approach: e.approach,
+          p_student_confidence: e.studentConfidence,
+          p_next_step: e.nextStep,
+          p_source: "tutor_conversation",
+          p_conversation: e.conversationId,
+        });
+        if (error) console.error("Recording learning evidence failed:", error.message);
       },
       async recordTutorActivity(conversationId, subjectId, title) {
         // One "Tutor session" entry per conversation in the activity ledger.

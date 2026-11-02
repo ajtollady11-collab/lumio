@@ -1,4 +1,5 @@
 import type { DashboardActivity } from "@/lib/dashboard/types";
+import type { TopicSignal } from "@/lib/learning/profile";
 import {
   EXAM_SOON_DAYS,
   EXAM_UPCOMING_DAYS,
@@ -12,10 +13,9 @@ import {
  *
  * Deterministic rules over real data — no AI call. Each rule is independent
  * and returns candidate recommendations; the engine ranks them, keeps at most
- * one per subject and one per kind, and caps the list. Later, the tutor's
- * structured memory (weak topics, misconceptions) plugs in as extra rules via
- * `buildRecommendations(ctx, [...DEFAULT_RULES, tutorMemoryRule])` — the
- * dashboard doesn't change.
+ * one per subject and one per kind (configurable), and caps the list.
+ * Topic-level rules (LEARNING_RULES) read the student's topic mastery when the
+ * caller supplies `ctx.topics`; without it they return nothing.
  */
 
 export type RecommendationKind =
@@ -28,7 +28,11 @@ export type RecommendationKind =
   | "consent"
   | "add_exams"
   | "add_boards"
-  | "set_goals";
+  | "set_goals"
+  | "revisit_topic"
+  | "ready_harder"
+  | "review_due"
+  | "check_introduced";
 
 export type Recommendation = {
   /** Stable identity, e.g. "exam_soon:biology" — used for de-duplication and React keys. */
@@ -50,6 +54,8 @@ export type RecommendationContext = {
   exams: ExamSummary[];
   activity: Pick<DashboardActivity, "totals" | "goals">;
   consentPending: boolean;
+  /** Topic mastery (Phase 5). Optional: rules that need it return nothing without it. */
+  topics?: TopicSignal[];
 };
 
 export type Rule = (ctx: RecommendationContext) => Recommendation[];
@@ -240,6 +246,90 @@ export const setGoalsRule: Rule = (ctx) =>
         },
       ];
 
+/* ── Topic-level rules (learning profile) ─────────────────────────────── */
+
+export const tutorHref = (slug: string, topic: string) =>
+  `/app/tutor?subject=${encodeURIComponent(slug)}&topic=${encodeURIComponent(topic)}`;
+const topicSubject = (t: TopicSignal) => ({ id: t.subjectId, name: t.subjectName, slug: t.slug, accent: t.accent });
+const examBoost = (t: TopicSignal) =>
+  t.nextExamDays === null ? 0 : t.nextExamDays <= EXAM_SOON_DAYS ? 10 : t.nextExamDays <= EXAM_UPCOMING_DAYS ? 4 : 0;
+const daysSince = (iso: string | null, today: string) => (iso ? daysBetween(iso.slice(0, 10), today) : null);
+
+/** Topics where recent answers show a gap (level "Developing" with mistakes, or an active weakness). */
+export const revisitTopicRule: Rule = (ctx) =>
+  (ctx.topics ?? [])
+    .filter((t) => (t.level === 3 && t.incorrectCount >= 2) || t.weak)
+    .map((t) => ({
+      key: `revisit_topic:${t.slug}:${t.topicKey}`,
+      kind: "revisit_topic" as const,
+      priority: 75 + examBoost(t) + Math.min(t.incorrectCount, 5),
+      subject: topicSubject(t),
+      title: `Revisit ${t.topic}`,
+      reason: `${plural(t.incorrectCount, "recent answer")} on ${t.topic} ${t.incorrectCount === 1 ? "wasn't" : "weren't"} right${
+        t.nextExamDays !== null && t.nextExamDays <= EXAM_UPCOMING_DAYS
+          ? `, and your ${t.subjectName} exam is in ${plural(t.nextExamDays, "day")}`
+          : ""
+      }.`,
+      minutes: 20,
+      action: { label: "Practise with your tutor", href: tutorHref(t.slug, t.topic) },
+    }));
+
+/** Strong (not yet mastered) topics with consistent evidence → stretch questions. */
+export const readyHarderRule: Rule = (ctx) =>
+  (ctx.topics ?? [])
+    .filter((t) => t.level === 5 && !t.weak)
+    .map((t) => ({
+      key: `ready_harder:${t.slug}:${t.topicKey}`,
+      kind: "ready_harder" as const,
+      priority: 40 + examBoost(t),
+      subject: topicSubject(t),
+      title: `Try harder ${t.topic} questions`,
+      reason: `Your answers on ${t.topic} are consistently strong across ${plural(t.evidenceCount, "piece")} of evidence.`,
+      minutes: 15,
+      action: { label: "Challenge yourself", href: tutorHref(t.slug, t.topic) },
+    }));
+
+/** Good-or-better topics not touched for 3+ weeks — more urgent when an exam is near. */
+export const REVIEW_AFTER_DAYS = 21;
+export const reviewDueRule: Rule = (ctx) =>
+  (ctx.topics ?? [])
+    .filter((t) => t.level >= 4)
+    .flatMap((t) => {
+      const gap = daysSince(t.lastEvidenceAt ?? t.lastSeenAt, ctx.today);
+      if (gap === null || gap < REVIEW_AFTER_DAYS) return [];
+      return [
+        {
+          key: `review_due:${t.slug}:${t.topicKey}`,
+          kind: "review_due" as const,
+          priority: 38 + examBoost(t) * 2 + Math.min(gap / 7, 6),
+          subject: topicSubject(t),
+          title: `Quick review: ${t.topic}`,
+          reason: `You last practised ${t.topic} ${plural(gap, "day")} ago — a short review keeps it fresh${
+            t.nextExamDays !== null && t.nextExamDays <= EXAM_UPCOMING_DAYS ? " before your exam" : ""
+          }.`,
+          minutes: 10,
+          action: { label: "Review with your tutor", href: tutorHref(t.slug, t.topic) },
+        },
+      ];
+    });
+
+/** Topics introduced but never assessed → check understanding. */
+export const checkIntroducedRule: Rule = (ctx) =>
+  (ctx.topics ?? [])
+    .filter((t) => t.level <= 2)
+    .map((t, i) => ({
+      key: `check_introduced:${t.slug}:${t.topicKey}`,
+      kind: "check_introduced" as const,
+      priority: 30 + examBoost(t) - i / 10,
+      subject: topicSubject(t),
+      title: `Check your understanding of ${t.topic}`,
+      reason: `You've studied ${t.topic} but haven't answered any questions on it yet, so it's not assessed.`,
+      minutes: 10,
+      action: { label: "Answer a few questions", href: tutorHref(t.slug, t.topic) },
+    }));
+
+export const LEARNING_RULES: Rule[] = [revisitTopicRule, readyHarderRule, reviewDueRule, checkIntroducedRule];
+
 export const DEFAULT_RULES: Rule[] = [
   consentRule,
   examRule,
@@ -250,6 +340,7 @@ export const DEFAULT_RULES: Rule[] = [
   addExamsRule,
   addBoardsRule,
   setGoalsRule,
+  ...LEARNING_RULES,
 ];
 
 export const MAX_RECOMMENDATIONS = 4;
@@ -258,25 +349,29 @@ export function buildRecommendations(
   ctx: RecommendationContext,
   rules: Rule[] = DEFAULT_RULES,
   max = MAX_RECOMMENDATIONS,
+  limits: { perSubject?: number; perKind?: number } = {},
 ): Recommendation[] {
+  const perSubject = limits.perSubject ?? 1;
+  const perKind = limits.perKind ?? 1;
   const ranked = rules
     .flatMap((rule) => rule(ctx))
     .sort((a, b) => b.priority - a.priority || a.key.localeCompare(b.key));
 
   const keys = new Set<string>();
-  const subjects = new Set<string>();
+  const subjects = new Map<string, number>();
   const kindCounts = new Map<RecommendationKind, number>();
   const out: Recommendation[] = [];
   for (const rec of ranked) {
     if (out.length >= max) break;
     if (keys.has(rec.key)) continue;
-    // One suggestion per subject: the most important reason wins.
-    if (rec.subject && subjects.has(rec.subject.id)) continue;
+    // One suggestion per subject by default: the most important reason wins.
+    const sameSubject = rec.subject ? (subjects.get(rec.subject.id) ?? 0) : 0;
+    if (rec.subject && sameSubject >= perSubject) continue;
     // Avoid a wall of the same kind ("Fit in some X" ×4). Exams are the exception.
     const sameKind = kindCounts.get(rec.kind) ?? 0;
-    if (sameKind >= (rec.kind === "exam_soon" ? 2 : 1)) continue;
+    if (sameKind >= (rec.kind === "exam_soon" ? Math.max(2, perKind) : perKind)) continue;
     keys.add(rec.key);
-    if (rec.subject) subjects.add(rec.subject.id);
+    if (rec.subject) subjects.set(rec.subject.id, sameSubject + 1);
     kindCounts.set(rec.kind, sameKind + 1);
     out.push(rec);
   }

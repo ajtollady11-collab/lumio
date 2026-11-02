@@ -5,12 +5,14 @@ import { ServiceUnavailable } from "@/components/feedback/service-unavailable";
 import { requireViewer } from "@/lib/auth/session";
 import { tryGetReferenceData } from "@/server/curriculum/reference";
 import { getDashboardActivity } from "@/server/dashboard/activity";
+import { getLearningProfile } from "@/server/learning/data";
 import { getStudentSnapshot } from "@/server/onboarding/student-data";
 
 /*
- * Student home. Three parallel reads, all scoped to the signed-in student by
- * RLS: profile (3 small queries), activity (one RPC), and curriculum names
- * (shared, cached for hours). Nothing is estimated or invented.
+ * Student home. Four parallel reads, all scoped to the signed-in student by
+ * RLS: profile (3 small queries), activity (one RPC), learning profile (one
+ * RPC) and curriculum names (shared, cached for hours). Nothing is estimated
+ * or invented.
  */
 export default function StudentHome() {
   return (
@@ -22,10 +24,12 @@ export default function StudentHome() {
 
 async function Dashboard() {
   const viewer = await requireViewer("/app");
-  const [snapshot, activity, reference] = await Promise.all([
+  const [snapshot, activity, reference, learning] = await Promise.all([
     getStudentSnapshot(viewer.id),
     getDashboardActivity(),
     tryGetReferenceData(),
+    // Optional: if it fails, the page still renders without topic detail.
+    getLearningProfile(),
   ]);
   if (!snapshot || !activity || !reference) return <ServiceUnavailable />;
 
@@ -40,6 +44,7 @@ async function Dashboard() {
       }}
       reference={reference}
       activity={activity}
+      learning={learning ?? undefined}
       now={new Date()}
     />
   );

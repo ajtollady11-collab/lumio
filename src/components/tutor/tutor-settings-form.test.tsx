@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_TUTOR } from "@/lib/tutor/options";
@@ -7,14 +7,13 @@ const router = { refresh: vi.fn(), push: vi.fn(), replace: vi.fn() };
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 const actions = vi.hoisted(() => ({
   saveTutorSettings: vi.fn(),
-  forgetMemory: vi.fn(),
   deleteConversation: vi.fn(),
   renameConversation: vi.fn(),
   loadEarlierMessages: vi.fn(),
 }));
 vi.mock("@/server/tutor/actions", () => actions);
 
-const { TutorSettingsForm, MemoryPanel, describeTutor } = await import("./tutor-settings-form");
+const { TutorSettingsForm, MemoryLinkCard, describeTutor } = await import("./tutor-settings-form");
 
 beforeEach(() => {
   Object.values(actions).forEach((a) => a.mockReset().mockResolvedValue({ ok: true, data: null }));
@@ -68,40 +67,19 @@ describe("Tutor customisation", () => {
   });
 });
 
-describe("Memory panel", () => {
-  const items = [
-    {
-      id: "m1",
-      kind: "topic_studied",
-      subjectName: "Biology",
-      topic: "Osmosis",
-      occurrences: 3,
-      lastSeenAt: "2026-11-03T10:00:00Z",
-    },
-  ];
-
-  it("lists only recorded items and lets the student forget them", async () => {
-    const user = userEvent.setup();
-    render(<MemoryPanel items={items} tutorName="Sage" />);
+describe("Memory link card", () => {
+  it("points to the learning profile and says parents can't see it", () => {
+    render(<MemoryLinkCard count={4} tutorName="Sage" />);
     expect(screen.getByRole("heading", { name: "What Sage remembers" })).toBeInTheDocument();
-    expect(screen.getByText("Biology: Osmosis")).toBeInTheDocument();
-    expect(screen.getByText(/Studied together · 3 times/)).toBeInTheDocument();
-    expect(screen.getByText(/parents can’t see this/)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Forget Osmosis" }));
-    expect(actions.forgetMemory).toHaveBeenCalledWith("m1");
-  });
-
-  it("forgets everything after confirmation", async () => {
-    const user = userEvent.setup();
-    render(<MemoryPanel items={items} tutorName="Sage" />);
-    await user.click(screen.getByRole("button", { name: "Forget everything" }));
-    const dialog = await screen.findByRole("dialog");
-    await user.click(within(dialog).getByRole("button", { name: "Forget everything" }));
-    expect(actions.forgetMemory).toHaveBeenCalledWith("all");
+    expect(screen.getByRole("link", { name: /Open My Learning Profile/ })).toHaveAttribute(
+      "href",
+      "/app/progress#memory",
+    );
+    expect(screen.getByText(/Parents can’t see this/)).toBeInTheDocument();
   });
 
   it("says plainly when nothing is recorded", () => {
-    render(<MemoryPanel items={[]} tutorName="Sage" />);
+    render(<MemoryLinkCard count={0} tutorName="Sage" />);
     expect(screen.getByText(/Nothing recorded yet/)).toBeInTheDocument();
   });
 });

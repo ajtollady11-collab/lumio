@@ -18,7 +18,28 @@ export function lastStudiedLabel(s: Pick<SubjectSummary, "lastStudiedDate">, tod
  * One subject. Every figure is either from onboarding (grades, board) or
  * from tracked activity; anything without data says so plainly.
  */
-export function SubjectCard({ subject: s, today }: { subject: SubjectSummary; today: string }) {
+export type TopicCounts = { tracked: number; assessed: number; strong: number; toImprove: number };
+
+/** "3 tracked" + "1 strong · 1 to improve" — counts of mastery rows, never a percentage. */
+export function topicSummary(t: TopicCounts | undefined): { main: string; sub: string | null } {
+  if (!t) return { main: "Tracked from lessons", sub: null };
+  if (t.tracked === 0) return { main: "None yet", sub: null };
+  const parts = [t.strong ? `${t.strong} strong` : null, t.toImprove ? `${t.toImprove} to improve` : null].filter(
+    Boolean,
+  );
+  return { main: `${t.tracked} tracked`, sub: parts.length ? parts.join(" · ") : `${t.assessed} assessed` };
+}
+
+export function SubjectCard({
+  subject: s,
+  today,
+  topics,
+}: {
+  subject: SubjectSummary;
+  today: string;
+  topics?: TopicCounts;
+}) {
+  const topicText = topicSummary(topics);
   return (
     <Link
       href={`/app/subjects/${s.slug}`}
@@ -94,9 +115,12 @@ export function SubjectCard({ subject: s, today }: { subject: SubjectSummary; to
         </div>
         <div>
           <dt className="text-[0.75rem] text-fg-subtle">Topics</dt>
-          <dd className="mt-0.5 flex items-center gap-1.5 text-fg-muted">
-            <BookOpen className="size-3.5 shrink-0" aria-hidden />
-            <span>Tracked from lessons</span>
+          <dd className="mt-0.5 text-fg-muted">
+            <span className="flex items-center gap-1.5">
+              <BookOpen className="size-3.5 shrink-0" aria-hidden />
+              <span className={topics && topics.tracked > 0 ? "font-medium text-fg" : undefined}>{topicText.main}</span>
+            </span>
+            {topicText.sub && <span className="mt-0.5 block text-xs text-fg-subtle">{topicText.sub}</span>}
           </dd>
         </div>
         <div className="col-span-2">

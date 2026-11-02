@@ -1,8 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { buildExams, buildSubjects } from "@/lib/dashboard/model";
 import type { DashboardActivity } from "@/lib/dashboard/types";
-import { REF, TODAY, activeActivity, emptyActivity, profile } from "@/test/dashboard-fixtures";
-import { buildRecommendations, type Recommendation, type RecommendationContext } from "./engine";
+import { topicSignals } from "@/lib/learning/profile";
+import { REF, TODAY, activeActivity, emptyActivity, learningProfile, profile } from "@/test/dashboard-fixtures";
+import {
+  buildRecommendations,
+  checkIntroducedRule,
+  LEARNING_RULES,
+  readyHarderRule,
+  revisitTopicRule,
+  reviewDueRule,
+  type Recommendation,
+  type RecommendationContext,
+} from "./engine";
 
 function ctx(
   p = profile(),
@@ -114,5 +124,55 @@ describe("buildRecommendations", () => {
     const recs = buildRecommendations(ctx(), [extra]);
     expect(recs).toHaveLength(1);
     expect(recs[0].key).toBe("tutor:osmosis");
+  });
+});
+
+describe("buildRecommendations — topic mastery rules", () => {
+  const SUBJECTS = [
+    { id: "s-bio", slug: "biology", name: "Biology", accent: "#39d3a1", nextExamDays: 216 },
+    { id: "s-chem", slug: "chemistry", name: "Chemistry", accent: "#6b9bff", nextExamDays: 8 },
+  ];
+  const withTopics = (): RecommendationContext => ({
+    ...ctx(profile({ exams: [] })),
+    topics: topicSignals(learningProfile(), SUBJECTS),
+  });
+
+  it("returns nothing topic-level without mastery data", () => {
+    expect(LEARNING_RULES.flatMap((r) => r(ctx()))).toEqual([]);
+  });
+
+  it("suggests revisiting a weak topic, with the reason and a tutor link", () => {
+    const [rec] = revisitTopicRule(withTopics());
+    expect(rec.title).toBe("Revisit Osmosis");
+    expect(rec.reason).toBe("3 recent answers on Osmosis weren't right.");
+    expect(rec.action.href).toBe("/app/tutor?subject=biology&topic=Osmosis");
+  });
+
+  it("offers harder questions only for Strong topics", () => {
+    expect(readyHarderRule(withTopics()).map((r) => r.title)).toEqual(["Try harder Cells questions"]);
+  });
+
+  it("flags a review after 3 weeks, more urgently when the exam is close", () => {
+    const [rec] = reviewDueRule(withTopics());
+    expect(rec.title).toBe("Quick review: Bonding");
+    expect(rec.reason).toMatch(/30 days ago .* before your exam\.$/);
+    const far = { ...withTopics(), topics: withTopics().topics!.map((t) => ({ ...t, nextExamDays: null })) };
+    expect(reviewDueRule(far)[0].priority).toBeLessThan(rec.priority);
+  });
+
+  it("asks for a check on topics that were introduced but never assessed", () => {
+    expect(checkIntroducedRule(withTopics()).map((r) => r.title)).toEqual(["Check your understanding of Enzymes"]);
+  });
+
+  it("ranks a weak topic in the default dashboard rules and still keeps one per subject", () => {
+    const recs = buildRecommendations(withTopics());
+    expect(recs.some((r) => r.kind === "revisit_topic")).toBe(true);
+    const ids = recs.flatMap((r) => (r.subject ? [r.subject.id] : []));
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("allows more per subject when asked (profile page)", () => {
+    const recs = buildRecommendations(withTopics(), LEARNING_RULES, 5, { perSubject: 2, perKind: 2 });
+    expect(recs.filter((r) => r.subject?.id === "s-bio").length).toBe(2);
   });
 });

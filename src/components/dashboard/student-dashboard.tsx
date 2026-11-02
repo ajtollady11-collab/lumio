@@ -11,8 +11,10 @@ import {
   type ReferenceLite,
 } from "@/lib/dashboard/model";
 import type { DashboardActivity } from "@/lib/dashboard/types";
+import { topicSignals, topicsBySubject, type LearningProfileRow } from "@/lib/learning/profile";
 import { cn } from "@/lib/utils/cn";
 import { Greeting } from "./greeting";
+import { LearningSnapshot } from "./learning-snapshot";
 import { LearningOverview } from "./learning-overview";
 import { QuickActions } from "./quick-actions";
 import { RecentActivity } from "./recent-activity";
@@ -41,24 +43,38 @@ export function StudentDashboard({
   profile,
   reference,
   activity,
+  learning,
   now,
 }: {
   displayName: string;
   profile: ProfileLite;
   reference: ReferenceLite;
   activity: DashboardActivity;
+  /** Topic mastery + insights. Optional: without it the dashboard still renders, minus topic-level detail. */
+  learning?: LearningProfileRow;
   now: Date;
 }) {
   const subjects = buildSubjects(profile, reference, activity);
   const exams = buildExams(profile, reference, activity.today);
   const consentPending = profile.parentalConsent === "pending";
+  const refs = subjects.map((s) => ({
+    id: s.subjectId,
+    slug: s.slug,
+    name: s.name,
+    accent: s.accent.hex,
+    nextExamDays: s.nextExam?.days ?? null,
+  }));
   const recommendations = buildRecommendations({
     today: activity.today,
     subjects,
     exams,
     activity,
     consentPending,
+    topics: learning ? topicSignals(learning, refs) : undefined,
   });
+  const topicCounts = learning
+    ? Object.fromEntries(topicsBySubject(learning, refs).map((g) => [g.subject.id, g.counts]))
+    : undefined;
   const examSoon = exams.some((e) => e.days <= EXAM_SOON_DAYS);
   const subjectName = (id: string | null) => (id ? (reference.subjects.find((s) => s.id === id)?.name ?? null) : null);
   const weekEnd = new Date(Date.parse(`${activity.weekStart}T00:00:00Z`) + 6 * 86_400_000);
@@ -91,8 +107,14 @@ export function StudentDashboard({
       </div>
 
       <div className="order-5 lg:col-span-12">
-        <SubjectsOverview subjects={subjects} today={activity.today} />
+        <SubjectsOverview subjects={subjects} today={activity.today} topicCounts={topicCounts} />
       </div>
+
+      {learning && (
+        <div className="order-6 lg:order-5 lg:col-span-12">
+          <LearningSnapshot learning={learning} subjectName={subjectName} today={activity.today} />
+        </div>
+      )}
 
       <div className="order-8 lg:order-6 lg:col-span-7">
         <LearningOverview activity={activity} subjectCount={subjects.length} />
